@@ -76,7 +76,7 @@ Pandora's Box is a modern, feature-rich Android media downloader powered by `yt-
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) - Feature-rich command-line audio/video downloader
 - [Chaquopy](https://chaquo.com/chaquopy/) - Python SDK for Android
 - [FFmpeg](https://ffmpeg.org/) - Cross-platform solution to record, convert and stream audio and video
-- GitHub Repository: [Dark-PandorasBox/pandoras-box-android](https://github.com/Mr-PaSiYa/pandoras-box-android)
+- GitHub Repository: [PandorasBox/pandoras-box-android](https://github.com/Mr-PaSiYa/pandoras-box-android)
 
 ---
 
