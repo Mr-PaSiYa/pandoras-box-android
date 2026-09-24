@@ -4,7 +4,7 @@
     <item
         android:id="@+id/nav_download"
         android:icon="@drawable/ic_nav_download"
-        android:title="Download" />
+        android:title="Home" />
 
     <item
         android:id="@+id/nav_queue"
@@ -14,11 +14,6 @@
     <item
         android:id="@+id/nav_history"
         android:icon="@drawable/ic_nav_history"
-        android:title="History" />
-
-    <item
-        android:id="@+id/nav_settings"
-        android:icon="@drawable/ic_nav_settings"
-        android:title="Settings" />
+        android:title="Library" />
 
 </menu>

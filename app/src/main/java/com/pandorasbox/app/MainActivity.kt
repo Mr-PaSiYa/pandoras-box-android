@@ -1,14 +1,30 @@
 package com.pandorasbox.app
 
 import android.os.Bundle
+import android.content.res.ColorStateList
+import android.graphics.Rect
+import android.provider.Settings
+import android.view.View
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
+import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.adapter.FragmentStateAdapter
+import androidx.viewpager2.widget.ViewPager2
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
-import com.google.android.material.bottomnavigation.BottomNavigationView
+import androidx.core.view.isVisible
 
 class MainActivity : FragmentActivity() {
+    private lateinit var bottomNav: LinearLayout
+    private lateinit var pager: ViewPager2
+    private val tabs = intArrayOf(R.id.nav_download, R.id.nav_queue, R.id.nav_history)
+    private var keyboardVisible = false
 
     // Android 13+ shows a "Allow notifications?" dialog. Nothing extra to do with the answer:
     // DownloadNotifier checks the permission every time before it posts.
@@ -24,6 +40,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        currentNavId = savedInstanceState?.getInt("current_nav_id", R.id.nav_download) ?: R.id.nav_download
         setContentView(R.layout.activity_main)
 
         // Start Python if it isn't already running
@@ -46,52 +63,113 @@ class MainActivity : FragmentActivity() {
             updateFlow.check(manual = false)
         }
 
-        if (savedInstanceState == null) {
-            supportFragmentManager.beginTransaction()
-                .setReorderingAllowed(true)
-                .setCustomAnimations(R.anim.fade_in, R.anim.fade_out)
-                .replace(R.id.fragment_container, DownloadFragment())
-                .commit()
-            currentNavId = R.id.nav_download
+        bottomNav = findViewById(R.id.bottom_nav)
+        pager = findViewById(R.id.main_pager)
+        val root = findViewById<View>(R.id.activity_root)
+        root.viewTreeObserver.addOnGlobalLayoutListener {
+            val visibleArea = Rect()
+            root.getWindowVisibleDisplayFrame(visibleArea)
+            val keyboardOpen = root.rootView.height - visibleArea.bottom >
+                160f * resources.displayMetrics.density
+            if (keyboardVisible != keyboardOpen) {
+                keyboardVisible = keyboardOpen
+                updateSettingsVisibility()
+            }
         }
+        pager.adapter = object : FragmentStateAdapter(this) {
+            override fun getItemCount(): Int = tabs.size
 
-        val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_nav)
-        bottomNav.setOnItemSelectedListener { item ->
-            if (item.itemId == currentNavId) return@setOnItemSelectedListener true
-
-            val selectedFragment: Fragment = when (item.itemId) {
-                R.id.nav_download -> DownloadFragment()
-                R.id.nav_queue -> QueueFragment()
-                R.id.nav_history -> HistoryFragment()
-                R.id.nav_settings -> SettingsFragment()
+            override fun createFragment(position: Int): Fragment = when (position) {
+                1 -> QueueFragment()
+                2 -> HistoryFragment()
                 else -> DownloadFragment()
             }
+        }
+        pager.offscreenPageLimit = 2
+        (pager.getChildAt(0) as? RecyclerView)?.overScrollMode = View.OVER_SCROLL_NEVER
+        pager.setCurrentItem(tabs.indexOf(currentNavId).coerceAtLeast(0), false)
+        pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+            override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) {
+                updateNavProgress(position + positionOffset)
+            }
 
-            // Direction-aware: moving right → slide from right, moving left → soft fade
-            val goingForward = navOrder(item.itemId) > navOrder(currentNavId)
+            override fun onPageSelected(position: Int) {
+                currentNavId = tabs[position]
+                updateSelectedLabel()
+            }
+        })
 
-            val enterAnim = if (goingForward) R.anim.slide_in_right else R.anim.fade_in
-            val exitAnim  = if (goingForward) R.anim.slide_out_left else R.anim.fade_out
+        tabs.forEach { id -> findViewById<View>(id).setOnClickListener { selectTab(id) } }
+        updateSelectedLabel()
+        updateNavProgress(tabs.indexOf(currentNavId).toFloat())
+        supportFragmentManager.addOnBackStackChangedListener { updateSettingsVisibility() }
+        updateSettingsVisibility()
+    }
 
-            supportFragmentManager.beginTransaction()
-                .setReorderingAllowed(true)
-                .setCustomAnimations(enterAnim, exitAnim)
-                .replace(R.id.fragment_container, selectedFragment)
-                .commit()
+    private fun selectTab(id: Int) {
+        if (id == currentNavId || supportFragmentManager.backStackEntryCount != 0) return
+        pager.setCurrentItem(tabs.indexOf(id), motionEnabled())
+    }
 
-            currentNavId = item.itemId
-            true
+    private fun updateSettingsVisibility() {
+        val settingsOpen = supportFragmentManager.backStackEntryCount != 0
+        bottomNav.isVisible = !settingsOpen && !keyboardVisible
+        pager.isUserInputEnabled = !settingsOpen && !keyboardVisible
+    }
+
+    private fun updateSelectedLabel() {
+        val labels = intArrayOf(R.id.nav_label_home, R.id.nav_label_queue, R.id.nav_label_library)
+        tabs.indices.forEach { i ->
+            findViewById<TextView>(labels[i]).apply {
+                setTypeface(typeface, if (tabs[i] == currentNavId) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+            }
         }
     }
 
-    /** Simple left-to-right order of the bottom nav items for direction-aware transitions. */
-    private fun navOrder(itemId: Int): Int = when (itemId) {
-        R.id.nav_download -> 0
-        R.id.nav_queue -> 1
-        R.id.nav_history -> 2
-        R.id.nav_settings -> 3
-        else -> 0
+    private fun updateNavProgress(progress: Float) {
+        val icons = intArrayOf(R.id.nav_icon_home, R.id.nav_icon_queue, R.id.nav_icon_library)
+        val labels = intArrayOf(R.id.nav_label_home, R.id.nav_label_queue, R.id.nav_label_library)
+        val indicators = intArrayOf(R.id.nav_indicator_home, R.id.nav_indicator_queue, R.id.nav_indicator_library)
+        val activeColor = ContextCompat.getColor(this, R.color.nav_item_selected)
+        val idleColor = ContextCompat.getColor(this, R.color.nav_item_unselected)
+        tabs.indices.forEach { i ->
+            val strength = (1f - kotlin.math.abs(i - progress)).coerceIn(0f, 1f)
+            val color = ColorUtils.blendARGB(idleColor, activeColor, strength)
+            findViewById<ImageView>(icons[i]).apply {
+                imageTintList = ColorStateList.valueOf(color)
+                scaleX = 0.96f + strength * 0.04f
+                scaleY = 0.96f + strength * 0.04f
+            }
+            findViewById<TextView>(labels[i]).setTextColor(color)
+            findViewById<View>(indicators[i]).alpha = strength
+        }
     }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt("current_nav_id", currentNavId)
+        super.onSaveInstanceState(outState)
+    }
+
+    fun openSettings() {
+        if (supportFragmentManager.backStackEntryCount != 0) return
+        val transaction = supportFragmentManager.beginTransaction()
+            .setReorderingAllowed(true)
+        if (motionEnabled()) transaction.setCustomAnimations(
+            R.anim.slide_in_right, R.anim.slide_out_left,
+            R.anim.slide_in_left, R.anim.slide_out_right
+        )
+        transaction
+            .replace(R.id.settings_container, SettingsFragment())
+            .addToBackStack("settings")
+            .commit()
+    }
+
+    fun closeSettings() {
+        supportFragmentManager.popBackStack()
+    }
+
+    private fun motionEnabled(): Boolean =
+        Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
 
     /**
      * Android 13+ needs the user's permission to show notifications. Ask once, on first launch,

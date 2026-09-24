@@ -4,10 +4,9 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewTreeObserver
 import android.view.animation.AccelerateInterpolator
-import android.view.animation.DecelerateInterpolator
 import android.widget.TextView
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -23,6 +22,7 @@ class QueueFragment : Fragment() {
     private lateinit var tvSummary: TextView
     private lateinit var btnPauseQueue: MaterialButton
     private lateinit var rvQueue: RecyclerView
+    private lateinit var tvEmpty: TextView
     private lateinit var queueAdapter: QueueAdapter
 
     // Highest percent shown so far per job id, so the UI never moves backwards.
@@ -50,12 +50,6 @@ class QueueFragment : Fragment() {
     private val exiting = LinkedHashMap<String, Exiting>()
     private var latestState: QueueState? = null
     private var lastShown: List<DownloadJob> = emptyList()
-    private var renderedOnce = false
-    private var enterPending = false
-
-    // Tab-switch detection for setups where the fragment view survives a tab change.
-    private var skipNextResume = false
-    private var stoppedSinceResume = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -71,12 +65,11 @@ class QueueFragment : Fragment() {
         tvSummary = view.findViewById(R.id.tv_queue_summary)
         btnPauseQueue = view.findViewById(R.id.btn_pause_queue)
         rvQueue = view.findViewById(R.id.rv_queue)
+        tvEmpty = view.findViewById(R.id.tv_queue_empty)
 
         exiting.clear()
         lastShown = emptyList()
         latestState = null
-        renderedOnce = false
-        enterPending = false
 
         queueAdapter = QueueAdapter { jobId ->
             DownloadManager.cancelJob(jobId)
@@ -84,8 +77,7 @@ class QueueFragment : Fragment() {
 
         rvQueue.layoutManager = LinearLayoutManager(requireContext())
         rvQueue.adapter = queueAdapter
-        // The enter/exit animations are handled entirely by hand (see runEnterAnimation /
-        // startFinishAnimation), on the same alpha/translationX/translationY properties the
+        // The finish animation is handled by hand, on the same alpha/translationX properties the
         // default ItemAnimator also touches for add/remove. Left enabled, the built-in add/remove
         // animations race our own ViewPropertyAnimator calls and reset or override them mid-flight,
         // which is why the custom animations were invisible. Zeroing add/remove/change durations
@@ -108,32 +100,6 @@ class QueueFragment : Fragment() {
 
         observeQueue()
 
-        // The tab is being opened right now: play the enter animation once the first list is in.
-        skipNextResume = true
-        playEnterAnimation()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // Covers tab systems that keep the view alive (e.g. ViewPager2). Coming back from the
-        // background does not count as switching tabs.
-        if (skipNextResume) {
-            skipNextResume = false
-        } else if (!stoppedSinceResume) {
-            playEnterAnimation()
-        }
-        stoppedSinceResume = false
-    }
-
-    override fun onStop() {
-        super.onStop()
-        stoppedSinceResume = true
-    }
-
-    // Covers tab systems that use hide()/show().
-    override fun onHiddenChanged(hidden: Boolean) {
-        super.onHiddenChanged(hidden)
-        if (!hidden) playEnterAnimation()
     }
 
     /**
@@ -167,10 +133,12 @@ class QueueFragment : Fragment() {
                 )
 
                 val total = state.active.size + state.queued.size
+                btnPauseQueue.isVisible = total > 0
+                tvEmpty.isVisible = total == 0
                 tvSummary.text = if (total > 0) {
                     "${state.active.size} running · ${state.queued.size} waiting"
                 } else {
-                    "Nothing queued."
+                    "No active downloads."
                 }
 
                 render()
@@ -223,11 +191,6 @@ class QueueFragment : Fragment() {
             exiting.entries.toList().forEach { (id, exit) ->
                 if (exit.leaving && !exit.animating) startFinishAnimation(id)
             }
-            if (enterPending) {
-                enterPending = false
-                if (display.isNotEmpty()) runEnterAnimation()
-            }
-            renderedOnce = true
         }
 
         val liveShownIds = display.map { it.id }.toSet()
@@ -289,47 +252,4 @@ class QueueFragment : Fragment() {
         return null
     }
 
-    // ---- Enter animation ----------------------------------------------------------------
-
-    private fun playEnterAnimation() {
-        if (view == null) return
-        if (renderedOnce) runEnterAnimation() else enterPending = true
-    }
-
-    /**
-     * Runs right before the next frame is drawn, so the rows never flash at their final position
-     * first. Each row drops in from above with a small stagger (kept short: ~0.5 s in total).
-     */
-    private fun runEnterAnimation() {
-        val rv = rvQueue
-        rv.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
-            override fun onPreDraw(): Boolean {
-                val observer = rv.viewTreeObserver
-                if (observer.isAlive) observer.removeOnPreDrawListener(this)
-
-                val drop = 56f * rv.resources.displayMetrics.density
-                var order = 0
-                for (i in 0 until rv.childCount) {
-                    val child = rv.getChildAt(i)
-                    val holder = rv.getChildViewHolder(child) as? QueueAdapter.ViewHolder
-                    val jobId = holder?.boundJobId
-                    if (jobId != null && exiting[jobId]?.leaving == true) continue // already flying out
-
-                    child.animate().cancel()
-                    child.translationX = 0f
-                    child.translationY = -drop
-                    child.alpha = 0f
-                    child.animate()
-                        .translationY(0f)
-                        .alpha(1f)
-                        .setStartDelay(minOf(order, 5) * 50L)
-                        .setDuration(340)
-                        .setInterpolator(DecelerateInterpolator(1.6f))
-                        .start()
-                    order++
-                }
-                return true
-            }
-        })
-    }
 }

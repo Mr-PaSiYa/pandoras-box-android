@@ -1,498 +1,421 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/home_scroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/transparent"
+    android:background="@color/background_dark"
     android:clipToPadding="false"
-    android:fillViewport="true"
-    android:paddingBottom="90dp">
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:paddingHorizontal="24dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="32dp">
 
-        <!-- Header -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:letterSpacing="0.15"
+                android:layout_weight="1"
+                android:letterSpacing="0.16"
                 android:text="PANDORA'S BOX"
                 android:textColor="@color/accent_blue"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Universal Downloader"
+            <ImageView
+                android:id="@+id/btn_open_settings"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="Open settings"
+                android:focusable="true"
+                android:padding="12dp"
+                android:src="@drawable/ic_nav_settings"
+                app:tint="@color/text_secondary" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="-0.035"
+            android:text="Save something worth keeping."
+            android:textColor="@color/text_primary"
+            android:textSize="32sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:lineSpacingExtra="3dp"
+            android:text="Paste a video or playlist link to get started."
+            android:textColor="@color/text_secondary"
+            android:textSize="15sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:text="LINK"
+            android:letterSpacing="0.12"
+            android:textColor="@color/text_muted"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_input_box"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingEnd="5dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:contentDescription="Link"
+                android:src="@drawable/ic_link"
+                app:tint="@color/text_muted" />
+
+            <EditText
+                android:id="@+id/et_url"
+                android:layout_width="0dp"
+                android:layout_height="58dp"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:background="@null"
+                android:ellipsize="end"
+                android:hint="Video or playlist URL"
+                android:inputType="textUri"
+                android:maxLines="1"
+                android:singleLine="true"
                 android:textColor="@color/text_primary"
-                android:textSize="22sp"
-                android:textStyle="bold" />
+                android:textColorHint="@color/text_muted"
+                android:textSize="14sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_paste"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:minWidth="56dp"
+                android:text="Paste"
+                android:textAllCaps="false"
+                android:textColor="@color/accent_blue" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_fetch_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/bg_fetch_status"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="12dp"
+            android:visibility="gone">
+
+            <com.airbnb.lottie.LottieAnimationView
+                android:id="@+id/progress_fetch"
+                android:layout_width="76dp"
+                android:layout_height="76dp"
+                android:contentDescription="Scanning video link"
+                app:lottie_rawRes="@raw/fetch_video"
+                app:lottie_loop="true" />
 
             <TextView
-                android:layout_width="wrap_content"
+                android:id="@+id/tv_fetch_status"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:layout_marginBottom="16dp"
-                android:text="Download videos, audio and playlists with yt-dlp."
-                android:textColor="@color/text_secondary"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:textColor="@color/accent_blue_soft"
                 android:textSize="13sp" />
         </LinearLayout>
 
-        <!-- Card: Input & Options -->
-        <com.google.android.material.card.MaterialCardView
+        <LinearLayout
+            android:id="@+id/layout_result"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardBackgroundColor="@color/surface_dark"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:strokeColor="@color/card_stroke"
-            app:strokeWidth="1dp">
+            android:layout_marginTop="34dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.12"
+                android:text="READY TO SAVE"
+                android:textColor="@color/accent_blue"
+                android:textSize="11sp"
+                android:textStyle="bold" />
 
             <LinearLayout
+                android:id="@+id/layout_preview"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/iv_thumbnail"
+                    android:layout_width="112dp"
+                    android:layout_height="76dp"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_download"
+                    app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.App.Corner10" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tv_preview_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="2"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tv_preview_meta"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/layout_playlist_panel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
                 android:orientation="vertical"
-                android:padding="18dp">
+                android:visibility="gone">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:letterSpacing="0.08"
-                    android:text="VIDEO / PLAYLIST LINK"
-                    android:textColor="@color/text_muted"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
+                    android:text="Playlist name"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
 
-                <!-- Single-Line Browser Style URL Address Bar Row -->
-                <LinearLayout
+                <EditText
+                    android:id="@+id/et_playlist_name"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:background="@drawable/bg_input_box"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:padding="4dp">
+                    android:padding="14dp"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp" />
 
-                    <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:layout_marginStart="10dp"
-                        android:src="@drawable/ic_link"
-                        app:tint="@color/text_muted" />
-
-                    <EditText
-                        android:id="@+id/et_url"
-                        android:layout_width="0dp"
-                        android:layout_height="48dp"
-                        android:layout_marginStart="8dp"
-                        android:layout_marginEnd="8dp"
-                        android:layout_weight="1"
-                        android:background="@null"
-                        android:ellipsize="end"
-                        android:hint="Paste video or playlist link..."
-                        android:inputType="textUri"
-                        android:maxLines="1"
-                        android:paddingVertical="10dp"
-                        android:scrollHorizontally="true"
-                        android:singleLine="true"
-                        android:textColor="@color/text_primary"
-                        android:textColorHint="@color/text_muted"
-                        android:textSize="14sp" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_paste"
-                        android:layout_width="wrap_content"
-                        android:layout_height="40dp"
-                        android:layout_marginEnd="4dp"
-                        android:text="Paste"
-                        android:textAllCaps="false"
-                        app:backgroundTint="@color/surface_dark"
-                        app:cornerRadius="10dp"
-                        app:icon="@drawable/ic_paste"
-                        app:iconTint="@color/text_primary"
-                        app:strokeColor="@color/card_stroke"
-                        app:strokeWidth="1dp" />
-                </LinearLayout>
-
-                <!-- Fetch status (spinner + message shown while video details load) -->
-                <LinearLayout
-                    android:id="@+id/layout_fetch_status"
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switch_numbering"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:visibility="gone">
+                    android:checked="true"
+                    android:text="Number files in order"
+                    android:textColor="@color/text_primary" />
 
-                    <ProgressBar
-                        android:id="@+id/progress_fetch"
-                        style="?android:attr/progressBarStyleSmall"
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:indeterminate="true"
-                        android:indeterminateTint="@color/accent_blue" />
-
-                    <TextView
-                        android:id="@+id/tv_fetch_status"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:layout_weight="1"
-                        android:maxLines="4"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
-                <!-- Preview Card -->
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/layout_preview"
+                <TextView
+                    android:id="@+id/tv_playlist_count"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:visibility="gone"
-                    app:cardBackgroundColor="@color/card_dark"
-                    app:cardCornerRadius="14dp"
-                    app:strokeColor="@color/card_stroke"
-                    app:strokeWidth="1dp">
+                    android:layout_marginTop="10dp"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="12dp">
-
-                        <com.google.android.material.imageview.ShapeableImageView
-                            android:id="@+id/iv_thumbnail"
-                            android:layout_width="110dp"
-                            android:layout_height="68dp"
-                            android:scaleType="centerCrop"
-                            android:src="@android:drawable/ic_menu_gallery"
-                            app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.App.Corner10" />
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/tv_preview_title"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:ellipsize="end"
-                                android:maxLines="2"
-                                android:textColor="@color/text_primary"
-                                android:textSize="13sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:id="@+id/tv_preview_meta"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:textColor="@color/accent_purple"
-                                android:textSize="11sp" />
-                        </LinearLayout>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-
-                <!-- Playlist Panel -->
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/layout_playlist_panel"
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_playlist_items"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:visibility="gone"
-                    app:cardBackgroundColor="@color/card_dark"
-                    app:cardCornerRadius="14dp"
-                    app:strokeColor="@color/card_stroke"
-                    app:strokeWidth="1dp">
+                    android:layout_height="200dp"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="14dp">
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="24dp"
+                android:background="@color/card_stroke" />
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="PLAYLIST NAME"
-                            android:textColor="@color/text_muted"
-                            android:textSize="11sp"
-                            android:textStyle="bold" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:orientation="horizontal">
 
-                        <EditText
-                            android:id="@+id/et_playlist_name"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:background="@drawable/bg_input_box"
-                            android:padding="12dp"
-                            android:textColor="@color/text_primary"
-                            android:textSize="14sp" />
-
-                        <com.google.android.material.materialswitch.MaterialSwitch
-                            android:id="@+id/switch_numbering"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:checked="true"
-                            android:text="Number files in order"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="13sp" />
-
-                        <TextView
-                            android:id="@+id/tv_playlist_count"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:textColor="@color/accent_cyan"
-                            android:textSize="12sp" />
-
-                        <androidx.recyclerview.widget.RecyclerView
-                            android:id="@+id/rv_playlist_items"
-                            android:layout_width="match_parent"
-                            android:layout_height="200dp"
-                            android:layout_marginTop="8dp" />
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-
-                <!-- Format & Quality Section -->
                 <LinearLayout
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:orientation="horizontal">
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginEnd="6dp"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="FORMAT"
-                            android:textColor="@color/text_muted"
-                            android:textSize="11sp"
-                            android:textStyle="bold" />
-
-                        <Spinner
-                            android:id="@+id/spinner_format"
-                            android:layout_width="match_parent"
-                            android:layout_height="48dp"
-                            android:layout_marginTop="6dp"
-                            android:background="@drawable/bg_spinner" />
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:id="@+id/layout_quality_container"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="MAX QUALITY"
-                            android:textColor="@color/text_muted"
-                            android:textSize="11sp"
-                            android:textStyle="bold" />
-
-                        <Spinner
-                            android:id="@+id/spinner_quality"
-                            android:layout_width="match_parent"
-                            android:layout_height="48dp"
-                            android:layout_marginTop="6dp"
-                            android:background="@drawable/bg_spinner" />
-                    </LinearLayout>
-                </LinearLayout>
-
-                <!-- Audio Track (only shown when the video has 2+ audio tracks) -->
-                <LinearLayout
-                    android:id="@+id/layout_audio_track"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:orientation="vertical"
-                    android:visibility="gone">
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="AUDIO TRACK"
+                        android:text="FORMAT"
+                        android:letterSpacing="0.1"
                         android:textColor="@color/text_muted"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
+                        android:textSize="11sp" />
 
-                    <Spinner
-                        android:id="@+id/spinner_audio_track"
+                <com.pandorasbox.app.OptionSpinner
+                    android:id="@+id/spinner_format"
+                    android:contentDescription="Choose format"
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="6dp"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="8dp"
                         android:background="@drawable/bg_spinner" />
                 </LinearLayout>
 
-                <!-- Duplicate Handling -->
+                <LinearLayout
+                    android:id="@+id/layout_quality_container"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="QUALITY"
+                        android:letterSpacing="0.1"
+                        android:textColor="@color/text_muted"
+                        android:textSize="11sp" />
+
+                    <com.pandorasbox.app.OptionSpinner
+                        android:id="@+id/spinner_quality"
+                        android:contentDescription="Choose quality"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/bg_spinner" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/layout_audio_track"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:text="DUPLICATE HANDLING"
+                    android:text="AUDIO TRACK"
                     android:textColor="@color/text_muted"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
+                    android:textSize="11sp" />
 
-                <Spinner
-                    android:id="@+id/spinner_duplicate"
+                <com.pandorasbox.app.OptionSpinner
+                    android:id="@+id/spinner_audio_track"
+                    android:contentDescription="Choose audio track"
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="6dp"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_spinner" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btn_toggle_advanced"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="16dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:contentDescription="More options for this download"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="More options for this download"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp" />
+
+                <ImageView
+                    android:id="@+id/iv_advanced_arrow"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:contentDescription="Expand options"
+                    android:src="@drawable/ic_chevron_down" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/layout_advanced_content"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingBottom="8dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="IF A FILE ALREADY EXISTS"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp" />
+
+                <com.pandorasbox.app.OptionSpinner
+                    android:id="@+id/spinner_duplicate"
+                    android:contentDescription="If a file already exists"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
                     android:background="@drawable/bg_spinner" />
 
-                <!-- Options Switches -->
                 <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/switch_subtitles"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:text="Download Subtitles"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp" />
+                    android:layout_marginTop="12dp"
+                    android:text="Download subtitles"
+                    android:textColor="@color/text_primary" />
 
                 <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/switch_metadata"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="Embed Thumbnail &amp; Metadata"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp" />
+                    android:text="Embed thumbnail and metadata"
+                    android:textColor="@color/text_primary" />
 
-                <!-- Collapsible Advanced Headers -->
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    app:cardBackgroundColor="@color/card_dark"
-                    app:cardCornerRadius="12dp"
-                    app:strokeColor="@color/card_stroke"
-                    app:strokeWidth="1dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical">
-
-                        <LinearLayout
-                            android:id="@+id/btn_toggle_advanced"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal"
-                            android:padding="14dp">
-
-                            <TextView
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:text="Advanced Headers (Optional)"
-                                android:textColor="@color/text_secondary"
-                                android:textSize="12sp"
-                                android:textStyle="bold" />
-
-                            <ImageView
-                                android:id="@+id/btn_info_advanced"
-                                android:layout_width="20dp"
-                                android:layout_height="20dp"
-                                android:layout_marginEnd="8dp"
-                                android:background="?selectableItemBackgroundBorderless"
-                                android:src="@drawable/ic_info"
-                                app:tint="@color/accent_blue" />
-
-                            <TextView
-                                android:id="@+id/tv_advanced_arrow"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="▼"
-                                android:textColor="@color/text_muted"
-                                android:textSize="12sp" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:id="@+id/layout_advanced_content"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:paddingHorizontal="14dp"
-                            android:paddingBottom="14dp"
-                            android:visibility="gone">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="PRESET USER-AGENT"
-                                android:textColor="@color/text_muted"
-                                android:textSize="11sp"
-                                android:textStyle="bold" />
-
-                            <Spinner
-                                android:id="@+id/spinner_ua_preset"
-                                android:layout_width="match_parent"
-                                android:layout_height="46dp"
-                                android:layout_marginTop="4dp"
-                                android:background="@drawable/bg_spinner" />
-
-                            <EditText
-                                android:id="@+id/et_referer"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="10dp"
-                                android:background="@drawable/bg_input_box"
-                                android:hint="Referer (e.g. https://example.com/)"
-                                android:padding="10dp"
-                                android:textColor="@color/text_primary"
-                                android:textColorHint="@color/text_muted"
-                                android:textSize="12sp" />
-
-                            <EditText
-                                android:id="@+id/et_user_agent"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="6dp"
-                                android:background="@drawable/bg_input_box"
-                                android:hint="User-Agent string"
-                                android:padding="10dp"
-                                android:textColor="@color/text_primary"
-                                android:textColorHint="@color/text_muted"
-                                android:textSize="12sp" />
-                        </LinearLayout>
-                    </LinearLayout>
-                </com.google.android.material.card.MaterialCardView>
-
-                <!-- Download Folder Location -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="18dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -500,51 +423,66 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="SAVE LOCATION"
-                        android:textColor="@color/text_muted"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
+                        android:text="Site headers"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp" />
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_change_folder"
-                        style="@style/Widget.Material3.Button.TextButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Change"
-                        android:textColor="@color/accent_blue"
-                        android:textSize="12sp" />
+                    <ImageView
+                        android:id="@+id/btn_info_advanced"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:contentDescription="About site headers"
+                        android:focusable="true"
+                        android:padding="10dp"
+                        android:src="@drawable/ic_info"
+                        app:tint="@color/text_muted" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/tv_folder_path"
+                <com.pandorasbox.app.OptionSpinner
+                    android:id="@+id/spinner_ua_preset"
+                    android:contentDescription="Choose browser preset"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:background="@drawable/bg_spinner" />
+
+                <EditText
+                    android:id="@+id/et_referer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="10dp"
                     android:background="@drawable/bg_input_box"
-                    android:ellipsize="middle"
-                    android:padding="12dp"
-                    android:singleLine="true"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
+                    android:hint="Referer URL"
+                    android:inputType="textUri"
+                    android:padding="14dp"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_muted" />
 
-                <!-- Action Button -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_download"
+                <EditText
+                    android:id="@+id/et_user_agent"
                     android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:layout_marginTop="20dp"
-                    android:text="Add to Queue"
-                    android:textAllCaps="false"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    app:backgroundTint="@color/accent_blue"
-                    app:cornerRadius="14dp"
-                    app:icon="@drawable/ic_download"
-                    app:iconGravity="textStart"
-                    app:iconTint="@color/text_primary" />
-
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_input_box"
+                    android:hint="User-Agent string"
+                    android:padding="14dp"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_muted" />
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_download"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="16dp"
+                android:text="Add to queue"
+                android:textAllCaps="false"
+                android:textColor="@color/background_dark"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/accent_blue"
+                app:cornerRadius="12dp" />
+        </LinearLayout>
     </LinearLayout>
 </ScrollView>

@@ -2,8 +2,8 @@ package com.pandorasbox.app
 
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
@@ -14,11 +14,9 @@ import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
@@ -27,6 +25,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
+import com.airbnb.lottie.LottieAnimationView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.materialswitch.MaterialSwitch
 import kotlinx.coroutines.Job
@@ -37,13 +36,14 @@ class DownloadFragment : Fragment() {
 
     private lateinit var etUrl: EditText
     private lateinit var btnPaste: MaterialButton
+    private lateinit var layoutResult: View
     private lateinit var layoutPreview: View
     private lateinit var ivThumbnail: ImageView
     private lateinit var tvPreviewTitle: TextView
     private lateinit var tvPreviewMeta: TextView
 
     private lateinit var layoutFetchStatus: View
-    private lateinit var progressFetch: ProgressBar
+    private lateinit var progressFetch: LottieAnimationView
     private lateinit var tvFetchStatus: TextView
 
     private lateinit var layoutPlaylistPanel: View
@@ -64,14 +64,12 @@ class DownloadFragment : Fragment() {
 
     private lateinit var btnToggleAdvanced: View
     private lateinit var layoutAdvancedContent: View
-    private lateinit var tvAdvancedArrow: TextView
+    private lateinit var ivAdvancedArrow: ImageView
     private lateinit var btnInfoAdvanced: ImageView
     private lateinit var spinnerUaPreset: Spinner
 
     private lateinit var etReferer: EditText
     private lateinit var etUserAgent: EditText
-    private lateinit var btnChangeFolder: MaterialButton
-    private lateinit var tvFolderPath: TextView
     private lateinit var btnDownload: MaterialButton
 
     private var previewJob: Job? = null
@@ -106,22 +104,6 @@ class DownloadFragment : Fragment() {
         "Firefox Windows (Desktop)" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
     )
 
-    private val folderPickerLauncher = registerForActivityResult(
-        ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        uri?.let {
-            try {
-                requireContext().contentResolver.takePersistableUriPermission(
-                    it,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                )
-            } catch (_: Exception) {}
-            val path = FileUtils.getPathFromTreeUri(it)
-            DownloadManager.setDownloadFolder(path)
-            Toast.makeText(requireContext(), "Saved download folder", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -136,12 +118,13 @@ class DownloadFragment : Fragment() {
         bindViews(view)
         setupSpinners()
         setupListeners()
-        observeSettings()
+        applyDownloadDefaults()
     }
 
     private fun bindViews(view: View) {
         etUrl = view.findViewById(R.id.et_url)
         btnPaste = view.findViewById(R.id.btn_paste)
+        layoutResult = view.findViewById(R.id.layout_result)
         layoutPreview = view.findViewById(R.id.layout_preview)
         ivThumbnail = view.findViewById(R.id.iv_thumbnail)
         tvPreviewTitle = view.findViewById(R.id.tv_preview_title)
@@ -169,14 +152,12 @@ class DownloadFragment : Fragment() {
 
         btnToggleAdvanced = view.findViewById(R.id.btn_toggle_advanced)
         layoutAdvancedContent = view.findViewById(R.id.layout_advanced_content)
-        tvAdvancedArrow = view.findViewById(R.id.tv_advanced_arrow)
+        ivAdvancedArrow = view.findViewById(R.id.iv_advanced_arrow)
         btnInfoAdvanced = view.findViewById(R.id.btn_info_advanced)
         spinnerUaPreset = view.findViewById(R.id.spinner_ua_preset)
 
         etReferer = view.findViewById(R.id.et_referer)
         etUserAgent = view.findViewById(R.id.et_user_agent)
-        btnChangeFolder = view.findViewById(R.id.btn_change_folder)
-        tvFolderPath = view.findViewById(R.id.tv_folder_path)
         btnDownload = view.findViewById(R.id.btn_download)
 
         rvPlaylistItems.layoutManager = LinearLayoutManager(requireContext())
@@ -239,6 +220,9 @@ class DownloadFragment : Fragment() {
     }
 
     private fun setupListeners() {
+        requireView().findViewById<View>(R.id.btn_open_settings).setOnClickListener {
+            (activity as? MainActivity)?.openSettings()
+        }
         btnPaste.setOnClickListener {
             val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = clipboard.primaryClip
@@ -257,6 +241,9 @@ class DownloadFragment : Fragment() {
                 previewJob?.cancel()
                 fetchJob?.cancel()
                 layoutFetchStatus.isVisible = false
+                progressFetch.cancelAnimation()
+                hideResult()
+                currentPreviewResult = null
                 // The old video's tracks must not be applied to whatever URL is typed next.
                 clearAudioTracks()
                 val text = s?.toString()?.trim() ?: ""
@@ -271,14 +258,19 @@ class DownloadFragment : Fragment() {
             }
         })
 
-        btnChangeFolder.setOnClickListener {
-            folderPickerLauncher.launch(null)
-        }
-
         btnToggleAdvanced.setOnClickListener {
             val isVis = layoutAdvancedContent.isVisible
-            layoutAdvancedContent.isVisible = !isVis
-            tvAdvancedArrow.text = if (!isVis) "▲" else "▼"
+            if (isVis) {
+                layoutAdvancedContent.isVisible = false
+            } else {
+                reveal(layoutAdvancedContent)
+            }
+            if (motionEnabled()) {
+                ivAdvancedArrow.animate().rotation(if (isVis) 0f else 180f).setDuration(180).start()
+            } else {
+                ivAdvancedArrow.rotation = if (isVis) 0f else 180f
+            }
+            btnToggleAdvanced.contentDescription = if (isVis) "More options for this download" else "Hide more options"
         }
 
         btnInfoAdvanced.setOnClickListener {
@@ -370,24 +362,82 @@ class DownloadFragment : Fragment() {
 
             etUrl.setText("")
             resetPreviewUI()
+            applyDownloadDefaults()
+            etReferer.setText("")
+            etUserAgent.setText("")
+            spinnerUaPreset.setSelection(0)
         }
     }
 
-    private fun observeSettings() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            DownloadManager.settings.collect { settings ->
-                tvFolderPath.text = settings.downloadFolder
-            }
+    override fun onResume() {
+        super.onResume()
+        if (::spinnerDuplicate.isInitialized && currentPreviewResult == null) applyDownloadDefaults()
+        if (::progressFetch.isInitialized && layoutFetchStatus.isVisible && progressFetch.isVisible && motionEnabled()) {
+            progressFetch.playAnimation()
         }
+    }
+
+    override fun onPause() {
+        if (::progressFetch.isInitialized) progressFetch.pauseAnimation()
+        super.onPause()
+    }
+
+    private fun applyDownloadDefaults() {
+        val settings = DownloadManager.settings.value
+        spinnerDuplicate.setSelection(when (settings.duplicatePolicy) {
+            "skip" -> 1
+            "overwrite" -> 2
+            else -> 0
+        })
+        switchSubtitles.isChecked = settings.downloadSubtitles
+        switchMetadata.isChecked = settings.embedMetadata
+    }
+
+    private fun reveal(target: View) {
+        target.animate().cancel()
+        target.isVisible = true
+        if (!motionEnabled()) {
+            target.alpha = 1f
+            target.translationY = 0f
+            return
+        }
+        val offset = 18f * resources.displayMetrics.density
+        target.alpha = 0f
+        target.translationY = offset
+        target.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setDuration(280)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .start()
+    }
+
+    private fun motionEnabled(): Boolean =
+        Settings.Global.getFloat(requireContext().contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
+
+    private fun hideResult() {
+        layoutResult.animate().cancel()
+        layoutResult.isVisible = false
+        layoutResult.alpha = 1f
+        layoutResult.translationY = 0f
+        layoutAdvancedContent.isVisible = false
+        ivAdvancedArrow.rotation = 0f
     }
 
     private fun showFetchStatus(message: String, isError: Boolean, showSpinner: Boolean) {
         layoutFetchStatus.isVisible = true
         progressFetch.isVisible = showSpinner
+        if (showSpinner && motionEnabled()) {
+            if (isResumed) progressFetch.playAnimation()
+            else progressFetch.progress = 0.35f
+        } else {
+            progressFetch.cancelAnimation()
+            if (showSpinner) progressFetch.progress = 0.35f
+        }
         tvFetchStatus.text = message
         tvFetchStatus.setTextColor(
             if (isError) 0xFFEF5350.toInt()
-            else ContextCompat.getColor(requireContext(), R.color.text_secondary)
+            else ContextCompat.getColor(requireContext(), R.color.accent_blue_soft)
         )
     }
 
@@ -398,6 +448,7 @@ class DownloadFragment : Fragment() {
         if (lines.size > 1) {
             resetPreviewUI()
             btnDownload.text = "Add ${lines.size} to Queue"
+            reveal(layoutResult)
             return
         }
 
@@ -408,6 +459,7 @@ class DownloadFragment : Fragment() {
 
             // Clear the old preview and tell the user we are working on it
             currentPreviewResult = null
+            hideResult()
             layoutPreview.isVisible = false
             layoutPlaylistPanel.isVisible = false
             showFetchStatus("Fetching video details…", isError = false, showSpinner = true)
@@ -443,10 +495,12 @@ class DownloadFragment : Fragment() {
                     isError = true,
                     showSpinner = false
                 )
+                reveal(layoutResult)
                 return@launch
             }
 
             layoutFetchStatus.isVisible = false
+            progressFetch.cancelAnimation()
 
             if (result.isPlaylist) {
                 layoutPreview.isVisible = false
@@ -504,6 +558,7 @@ class DownloadFragment : Fragment() {
                 }
                 btnDownload.text = "Add to Queue"
             }
+            reveal(layoutResult)
         }
     }
 
@@ -552,8 +607,10 @@ class DownloadFragment : Fragment() {
     private fun resetPreviewUI() {
         currentPreviewResult = null
         layoutFetchStatus.isVisible = false
+        progressFetch.cancelAnimation()
         layoutPreview.isVisible = false
         layoutPlaylistPanel.isVisible = false
+        hideResult()
         btnDownload.text = "Add to Queue"
 
         clearAudioTracks()

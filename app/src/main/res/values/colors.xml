@@ -1,21 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="background_dark">#090D16</color>
-    <color name="surface_dark">#111827</color>
-    <color name="card_dark">#1F2937</color>
-    <color name="card_stroke">#374151</color>
+    <color name="background_dark">#0C1014</color>
+    <color name="surface_dark">#171D24</color>
+    <color name="card_dark">#202B36</color>
+    <color name="card_stroke">#303D49</color>
 
-    <color name="accent_blue">#6366F1</color>
-    <color name="accent_purple">#8B5CF6</color>
-    <color name="accent_cyan">#06B6D4</color>
+    <color name="accent_blue">#8FBEF5</color>
+    <color name="accent_blue_strong">#348DF4</color>
+    <color name="accent_blue_soft">#E0EFFF</color>
+    <color name="accent_blue_deep">#2B4869</color>
+    <color name="accent_purple">#8FBEF5</color>
+    <color name="accent_cyan">#8FBEF5</color>
     <color name="accent_emerald">#10B981</color>
     <color name="accent_rose">#EF4444</color>
     <color name="accent_amber">#F59E0B</color>
 
-    <color name="text_primary">#F9FAFB</color>
-    <color name="text_secondary">#9CA3AF</color>
-    <color name="text_muted">#6B7280</color>
+    <color name="text_primary">#F1F4F7</color>
+    <color name="text_secondary">#AAB5BF</color>
+    <color name="text_muted">#7C8B98</color>
 
-    <color name="nav_item_selected">#818CF8</color>
-    <color name="nav_item_unselected">#6B7280</color>
+    <color name="nav_item_selected">#A8CEFA</color>
+    <color name="nav_item_unselected">#8896A2</color>
+    <color name="nav_active_surface">#26394B</color>
 </resources>

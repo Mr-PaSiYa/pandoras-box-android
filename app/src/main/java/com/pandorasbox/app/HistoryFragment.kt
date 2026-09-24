@@ -9,8 +9,10 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -23,6 +25,7 @@ class HistoryFragment : Fragment() {
 
     private lateinit var btnClearHistory: MaterialButton
     private lateinit var rvHistory: RecyclerView
+    private lateinit var tvEmpty: TextView
     private lateinit var historyAdapter: HistoryAdapter
 
     override fun onCreateView(
@@ -38,6 +41,7 @@ class HistoryFragment : Fragment() {
 
         btnClearHistory = view.findViewById(R.id.btn_clear_history)
         rvHistory = view.findViewById(R.id.rv_history)
+        tvEmpty = view.findViewById(R.id.tv_history_empty)
 
         historyAdapter = HistoryAdapter(
             lifecycleScope = viewLifecycleOwner.lifecycleScope,
@@ -64,6 +68,8 @@ class HistoryFragment : Fragment() {
     private fun observeHistory() {
         viewLifecycleOwner.lifecycleScope.launch {
             DownloadManager.historyJobs.collect { historyList ->
+                btnClearHistory.isVisible = historyList.isNotEmpty()
+                tvEmpty.isVisible = historyList.isEmpty()
                 historyAdapter.submitList(historyList)
             }
         }

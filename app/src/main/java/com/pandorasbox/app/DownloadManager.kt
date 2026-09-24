@@ -74,7 +74,10 @@ object DownloadManager {
             notificationsEnabled = prefs.getBoolean("notifications", true),
             downloadFolder = prefs.getString("download_folder", defaultFolder) ?: defaultFolder,
             lastReferer = prefs.getString("last_referer", "") ?: "",
-            lastUserAgent = prefs.getString("last_user_agent", "") ?: ""
+            lastUserAgent = prefs.getString("last_user_agent", "") ?: "",
+            duplicatePolicy = prefs.getString("duplicate_policy", "rename") ?: "rename",
+            downloadSubtitles = prefs.getBoolean("download_subtitles", false),
+            embedMetadata = prefs.getBoolean("embed_metadata", false)
         )
         _settings.value = currentSettings
 
@@ -119,6 +122,15 @@ object DownloadManager {
         checkAndDispatch()
     }
 
+    fun updateDownloadDefaults(duplicatePolicy: String, subtitles: Boolean, embedMetadata: Boolean) {
+        _settings.value = _settings.value.copy(
+            duplicatePolicy = duplicatePolicy,
+            downloadSubtitles = subtitles,
+            embedMetadata = embedMetadata
+        )
+        saveSettings()
+    }
+
     fun saveLastHeaders(referer: String, userAgent: String) {
         if (referer.isNotBlank() || userAgent.isNotBlank()) {
             _settings.value = _settings.value.copy(
@@ -139,6 +151,9 @@ object DownloadManager {
             .putString("download_folder", s.downloadFolder)
             .putString("last_referer", s.lastReferer)
             .putString("last_user_agent", s.lastUserAgent)
+            .putString("duplicate_policy", s.duplicatePolicy)
+            .putBoolean("download_subtitles", s.downloadSubtitles)
+            .putBoolean("embed_metadata", s.embedMetadata)
             .apply()
     }
 

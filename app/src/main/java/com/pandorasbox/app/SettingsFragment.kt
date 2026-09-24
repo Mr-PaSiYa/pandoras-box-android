@@ -9,10 +9,15 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.ImageView
+import android.widget.ArrayAdapter
+import android.widget.AdapterView
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
+import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.materialswitch.MaterialSwitch
@@ -27,6 +32,9 @@ class SettingsFragment : Fragment() {
     private lateinit var etSaveFolder: EditText
     private lateinit var btnCheckUpdates: MaterialButton
     private lateinit var tvUpdateStatus: TextView
+    private lateinit var spinnerDefaultDuplicate: Spinner
+    private lateinit var switchDefaultSubtitles: MaterialSwitch
+    private lateinit var switchDefaultMetadata: MaterialSwitch
 
     private val folderPickerLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
@@ -74,10 +82,76 @@ class SettingsFragment : Fragment() {
         switchNotifications = view.findViewById(R.id.switch_notifications)
         btnSelectFolder = view.findViewById(R.id.btn_select_folder)
         etSaveFolder = view.findViewById(R.id.et_save_folder)
+        spinnerDefaultDuplicate = view.findViewById(R.id.spinner_default_duplicate)
+        switchDefaultSubtitles = view.findViewById(R.id.switch_default_subtitles)
+        switchDefaultMetadata = view.findViewById(R.id.switch_default_metadata)
+
+        view.findViewById<View>(R.id.btn_back_home).setOnClickListener {
+            (activity as? MainActivity)?.closeSettings()
+        }
+        val advancedSettings = view.findViewById<View>(R.id.layout_advanced_settings)
+        val advancedToggle = view.findViewById<View>(R.id.btn_toggle_advanced_settings)
+        val advancedArrow = view.findViewById<ImageView>(R.id.iv_advanced_settings_arrow)
+        advancedToggle.setOnClickListener {
+            advancedSettings.isVisible = !advancedSettings.isVisible
+            val rotation = if (advancedSettings.isVisible) 180f else 0f
+            advancedArrow.animate().cancel()
+            if (android.provider.Settings.Global.getFloat(
+                    requireContext().contentResolver,
+                    android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                    1f
+                ) > 0f) {
+                advancedArrow.animate().rotation(rotation).setDuration(180).start()
+            } else {
+                advancedArrow.rotation = rotation
+            }
+            advancedToggle.contentDescription = if (advancedSettings.isVisible) {
+                "Collapse advanced settings"
+            } else {
+                "Expand advanced settings"
+            }
+        }
 
         observeSettings()
+        setupDownloadDefaults()
         setupListeners()
         setupAboutAndUpdates(view)
+    }
+
+    private fun setupDownloadDefaults() {
+        val adapter = ArrayAdapter(
+            requireContext(),
+            R.layout.item_spinner,
+            listOf("Create a new copy", "Skip if file exists", "Overwrite existing file")
+        ).apply { setDropDownViewResource(R.layout.item_spinner_dropdown) }
+        spinnerDefaultDuplicate.adapter = adapter
+        val settings = DownloadManager.settings.value
+        spinnerDefaultDuplicate.setSelection(when (settings.duplicatePolicy) {
+            "skip" -> 1
+            "overwrite" -> 2
+            else -> 0
+        })
+        switchDefaultSubtitles.isChecked = settings.downloadSubtitles
+        switchDefaultMetadata.isChecked = settings.embedMetadata
+
+        fun saveDefaults() {
+            val duplicate = when (spinnerDefaultDuplicate.selectedItemPosition) {
+                1 -> "skip"
+                2 -> "overwrite"
+                else -> "rename"
+            }
+            DownloadManager.updateDownloadDefaults(
+                duplicate,
+                switchDefaultSubtitles.isChecked,
+                switchDefaultMetadata.isChecked
+            )
+        }
+        spinnerDefaultDuplicate.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) = saveDefaults()
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        switchDefaultSubtitles.setOnCheckedChangeListener { _, _ -> saveDefaults() }
+        switchDefaultMetadata.setOnCheckedChangeListener { _, _ -> saveDefaults() }
     }
 
     private fun observeSettings() {
@@ -153,6 +227,9 @@ class SettingsFragment : Fragment() {
         // GitHub link: the whole row is tappable.
         rowGithub.setOnClickListener {
             UpdateFlow.openUrl(requireContext(), UpdateChecker.GITHUB_REPO_URL)
+        }
+        view.findViewById<View>(R.id.row_donate).setOnClickListener {
+            UpdateFlow.openUrl(requireContext(), "https://buymeacoffee.com/pasindusheshan")
         }
 
         // Manual update check (same flow as the automatic one at app start).

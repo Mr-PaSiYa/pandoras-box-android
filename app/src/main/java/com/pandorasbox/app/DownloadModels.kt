@@ -33,5 +33,8 @@ data class AppSettings(
     var notificationsEnabled: Boolean = true,
     var downloadFolder: String = "",
     var lastReferer: String = "",
-    var lastUserAgent: String = ""
+    var lastUserAgent: String = "",
+    var duplicatePolicy: String = "rename",
+    var downloadSubtitles: Boolean = false,
+    var embedMetadata: Boolean = false
 )
