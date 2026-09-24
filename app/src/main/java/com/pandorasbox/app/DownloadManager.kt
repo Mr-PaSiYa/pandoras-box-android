@@ -61,10 +61,6 @@ object DownloadManager {
         // Notification channels must exist before any notification is posted (Android 8+).
         DownloadNotifier.createChannels(appContext)
 
-        try {
-            YtDlpEngine.initCustomPath(File(appContext.filesDir, "python_packages").absolutePath)
-        } catch (_: Exception) {}
-
         val defaultFolder = FileUtils.getDefaultDownloadFolder(appContext)
         val prefs = appContext.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 

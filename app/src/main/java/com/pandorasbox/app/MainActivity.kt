@@ -16,8 +16,6 @@ import androidx.fragment.app.FragmentActivity
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
-import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
 import androidx.core.view.isVisible
 
 class MainActivity : FragmentActivity() {
@@ -42,15 +40,6 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         currentNavId = savedInstanceState?.getInt("current_nav_id", R.id.nav_download) ?: R.id.nav_download
         setContentView(R.layout.activity_main)
-
-        // Start Python if it isn't already running
-        try {
-            if (!Python.isStarted()) {
-                Python.start(AndroidPlatform(this))
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
 
         FFmpegHelper.prepareFFmpeg(applicationContext)
         DownloadManager.init(applicationContext)
@@ -104,6 +93,7 @@ class MainActivity : FragmentActivity() {
         updateNavProgress(tabs.indexOf(currentNavId).toFloat())
         supportFragmentManager.addOnBackStackChangedListener { updateSettingsVisibility() }
         updateSettingsVisibility()
+        root.postDelayed({ PythonRuntime.startAsync(applicationContext) }, 300L)
     }
 
     private fun selectTab(id: Int) {

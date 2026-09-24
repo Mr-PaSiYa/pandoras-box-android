@@ -72,6 +72,7 @@ fun interface PyProgressCallback {
 object YtDlpEngine {
 
     private fun getHelperModule(): PyObject {
+        PythonRuntime.ensureStarted()
         val py = Python.getInstance()
         return py.getModule("ytdlp_helper")
     }

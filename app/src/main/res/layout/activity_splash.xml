@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background_dark">
@@ -11,59 +12,26 @@
         android:gravity="center_horizontal"
         android:orientation="vertical">
 
+        <com.airbnb.lottie.LottieAnimationView
+            android:id="@+id/splash_logo"
+            android:layout_width="260dp"
+            android:layout_height="260dp"
+            android:contentDescription="Pandora's Box"
+            app:lottie_autoPlay="false"
+            app:lottie_loop="false"
+            app:lottie_rawRes="@raw/splash_logo" />
+
         <FrameLayout
-            android:id="@+id/splash_mark"
-            android:layout_width="112dp"
-            android:layout_height="112dp"
-            android:background="@drawable/bg_splash_mark">
+            android:layout_width="72dp"
+            android:layout_height="2dp"
+            android:layout_marginTop="-36dp"
+            android:background="@drawable/bg_splash_progress_track">
 
-            <TextView
+            <View
+                android:id="@+id/splash_progress"
                 android:layout_width="match_parent"
-                android:layout_height="78dp"
-                android:fontFamily="sans-serif-light"
-                android:gravity="bottom|center_horizontal"
-                android:text="P"
-                android:textColor="@color/accent_blue_soft"
-                android:textSize="74sp" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="20dp"
-                android:layout_gravity="bottom"
-                android:layout_marginBottom="12dp"
-                android:fontFamily="sans-serif-medium"
-                android:gravity="center"
-                android:letterSpacing="0.16"
-                android:text="BOX"
-                android:textColor="@color/accent_blue"
-                android:textSize="15sp" />
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_splash_progress_fill" />
         </FrameLayout>
-
-        <View
-            android:id="@+id/splash_accent_line"
-            android:layout_width="76dp"
-            android:layout_height="3dp"
-            android:layout_marginTop="26dp"
-            android:background="@color/accent_blue_strong" />
-
-        <TextView
-            android:id="@+id/splash_title"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:fontFamily="sans-serif-medium"
-            android:letterSpacing="0.17"
-            android:text="PANDORA'S BOX"
-            android:textColor="@color/text_primary"
-            android:textSize="18sp" />
-
-        <TextView
-            android:id="@+id/splash_subtitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Save something worth keeping."
-            android:textColor="@color/text_secondary"
-            android:textSize="14sp" />
     </LinearLayout>
 </FrameLayout>

@@ -18,6 +18,10 @@
 
     <style name="Theme.PandorasBox.Splash" parent="Theme.PandorasBox">
         <item name="android:windowBackground">@color/background_dark</item>
+        <item name="android:statusBarColor">@color/background_dark</item>
+        <item name="android:navigationBarColor">@color/background_dark</item>
+        <item name="android:windowSplashScreenBackground">@color/background_dark</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_system_placeholder</item>
     </style>
 
     <style name="ShapeAppearanceOverlay.App.Corner10" parent="">

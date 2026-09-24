@@ -1,17 +1,31 @@
 package com.pandorasbox.app
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ObjectAnimator
 import android.content.Intent
+import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.view.View
-import android.view.animation.PathInterpolator
+import android.view.animation.LinearInterpolator
 import androidx.fragment.app.FragmentActivity
+import com.airbnb.lottie.LottieAnimationView
 
 class SplashActivity : FragmentActivity() {
     private val handler = Handler(Looper.getMainLooper())
+    private lateinit var logo: LottieAnimationView
+    private lateinit var progressLine: View
+    private var progressAnimator: ObjectAnimator? = null
+    private var started = false
+    private var foreground = false
+    private var homeOpened = false
+
     private val openHome = Runnable {
+        if (!foreground || homeOpened) return@Runnable
+        homeOpened = true
         startActivity(Intent(this, MainActivity::class.java))
         finish()
         overridePendingTransition(R.anim.splash_enter, R.anim.splash_exit)
@@ -20,58 +34,69 @@ class SplashActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
+        PythonRuntime.prepare(applicationContext)
+
+        logo = findViewById(R.id.splash_logo)
+        progressLine = findViewById(R.id.splash_progress)
+        progressLine.pivotX = 0f
+        progressLine.scaleX = 0f
+
+        logo.setFontMap(
+            mapOf(
+                "Titillium Web Extra Light" to Typeface.createFromAsset(
+                    assets, "splash_fonts/Titillium Web Extra Light.ttf"
+                ),
+                "Titillium Web Semi Bold" to Typeface.createFromAsset(
+                    assets, "splash_fonts/Titillium Web Semi Bold.ttf"
+                )
+            )
+        )
+        // The visible artwork finishes at frame 70; the source has a long static tail.
+        logo.setMaxFrame(70)
+        logo.speed = 1.1f
+        logo.addAnimatorListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                progressAnimator?.end()
+                if (foreground) handler.postDelayed(openHome, 120L)
+            }
+        })
     }
 
     override fun onResume() {
         super.onResume()
-        handler.removeCallbacks(openHome)
-
-        val mark = findViewById<View>(R.id.splash_mark)
-        val line = findViewById<View>(R.id.splash_accent_line)
-        val title = findViewById<View>(R.id.splash_title)
-        val subtitle = findViewById<View>(R.id.splash_subtitle)
+        foreground = true
         val motionEnabled = Settings.Global.getFloat(
             contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f
         ) > 0f
 
-        if (motionEnabled) {
-            val offset = 12f * resources.displayMetrics.density
-            val easing = PathInterpolator(0.2f, 0f, 0.2f, 1f)
-
-            mark.alpha = 0f
-            mark.scaleX = 0.88f
-            mark.scaleY = 0.88f
-            mark.translationY = offset
-            mark.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
-                .setDuration(520).setInterpolator(easing).withLayer().start()
-
-            line.alpha = 1f
-            line.pivotX = 0f
-            line.scaleX = 0f
-            line.animate().scaleX(1f).setStartDelay(260)
-                .setDuration(490).setInterpolator(easing).start()
-
-            title.alpha = 0f
-            title.translationY = offset
-            title.animate().alpha(1f).translationY(0f).setStartDelay(380)
-                .setDuration(420).setInterpolator(easing).start()
-
-            subtitle.alpha = 0f
-            subtitle.translationY = offset
-            subtitle.animate().alpha(1f).translationY(0f).setStartDelay(500)
-                .setDuration(420).setInterpolator(easing).start()
-        } else {
-            mark.alpha = 1f
-            line.scaleX = 1f
-            title.alpha = 1f
-            subtitle.alpha = 1f
+        if (!motionEnabled) {
+            logo.progress = 70f / 150f
+            progressLine.scaleX = 1f
+            handler.postDelayed(openHome, 120L)
+            return
         }
 
-        handler.postDelayed(openHome, if (motionEnabled) 1250L else 120L)
+        if (!started) {
+            started = true
+            progressAnimator = ObjectAnimator.ofFloat(progressLine, View.SCALE_X, 0f, 1f).apply {
+                duration = 2120L
+                interpolator = LinearInterpolator()
+                start()
+            }
+            logo.playAnimation()
+        } else if (logo.progress >= 70f / 150f) {
+            handler.postDelayed(openHome, 120L)
+        } else {
+            progressAnimator?.resume()
+            logo.resumeAnimation()
+        }
     }
 
     override fun onPause() {
+        foreground = false
         handler.removeCallbacks(openHome)
+        progressAnimator?.pause()
+        logo.pauseAnimation()
         super.onPause()
     }
 }
