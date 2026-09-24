@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- cacheDir/updates/ : where UpdateChecker saves the downloaded APK -->
+    <cache-path
+        name="updates"
+        path="updates/" />
+</paths>

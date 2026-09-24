@@ -2,10 +2,10 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="#141D29"
+    android:background="@color/card_dark"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:padding="6dp">
+    android:padding="8dp">
 
     <CheckBox
         android:id="@+id/cb_include"
@@ -14,7 +14,7 @@
 
     <TextView
         android:id="@+id/tv_index"
-        android:layout_width="30dp"
+        android:layout_width="32dp"
         android:layout_height="wrap_content"
         android:textColor="@color/accent_purple"
         android:textSize="12sp"
@@ -29,5 +29,15 @@
         android:singleLine="true"
         android:textColor="@color/text_primary"
         android:textSize="13sp" />
+
+    <!-- Drag handle: press and hold here, then move up or down to reorder -->
+    <ImageView
+        android:id="@+id/iv_drag_handle"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:contentDescription="Drag to reorder"
+        android:padding="8dp"
+        android:src="@drawable/ic_drag_handle"
+        android:tint="@color/text_muted" />
 
 </LinearLayout>

@@ -24,6 +24,7 @@ class QueueAdapter(
         val tvSpeed: TextView = view.findViewById(R.id.tv_speed)
         val tvEta: TextView = view.findViewById(R.id.tv_eta)
         val btnCancel: MaterialButton = view.findViewById(R.id.btn_cancel)
+        var boundJobId: String? = null
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -34,22 +35,73 @@ class QueueAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = getItem(position)
+
+        // A row that is reused for a different job must not keep a leftover slide/drop offset.
+        // (Same-job rebinds are left alone so a running animation is not interrupted.)
+        if (holder.boundJobId != item.id) resetRowTransform(holder.itemView)
+
         holder.tvTitle.text = item.title.ifBlank { item.url }
 
         val fmtStr = item.format.uppercase()
         val playlistTag = if (!item.playlistTitle.isNullOrBlank()) " · ${item.playlistTitle}" else ""
         holder.tvSub.text = "$fmtStr$playlistTag · ${item.stage}"
 
-        holder.tvStatusPill.text = item.status.uppercase()
-        holder.progressBar.progress = item.percent.toInt()
-        holder.tvPercent.text = "${item.percent.toInt()}%"
+        when (item.status) {
+            "downloading" -> {
+                holder.tvStatusPill.text = "DOWNLOADING"
+                holder.tvStatusPill.setTextColor(0xFF818CF8.toInt())
+            }
+            "starting" -> {
+                holder.tvStatusPill.text = "STARTING"
+                holder.tvStatusPill.setTextColor(0xFF06B6D4.toInt())
+            }
+            "queued" -> {
+                holder.tvStatusPill.text = "QUEUED"
+                holder.tvStatusPill.setTextColor(0xFFF59E0B.toInt())
+            }
+            "paused" -> {
+                holder.tvStatusPill.text = "PAUSED"
+                holder.tvStatusPill.setTextColor(0xFF94A3B8.toInt())
+            }
+            "completed" -> {
+                holder.tvStatusPill.text = "COMPLETED"
+                holder.tvStatusPill.setTextColor(0xFF22C55E.toInt())
+            }
+            else -> {
+                holder.tvStatusPill.text = item.status.uppercase()
+                holder.tvStatusPill.setTextColor(0xFF9CA3AF.toInt())
+            }
+        }
+
+        val pct = item.percent.toInt()
+        // Animate only when the same job updates; snap when a recycled row shows a different job.
+        val sameJob = holder.boundJobId == item.id
+        holder.boundJobId = item.id
+        holder.progressBar.setProgress(pct, sameJob)
+        holder.tvPercent.text = "$pct%"
         holder.tvDownloadedTotal.text = "${item.downloaded} / ${item.total}"
         holder.tvSpeed.text = item.speed
         holder.tvEta.text = if (item.eta != "—") "ETA ${item.eta}" else "—"
 
+        // A finished row is on its way out: hide (not remove) Cancel so the row height stays put.
+        holder.btnCancel.visibility = if (item.status == "completed") View.INVISIBLE else View.VISIBLE
         holder.btnCancel.setOnClickListener {
             onCancelClick(item.id)
         }
+    }
+
+    override fun onViewRecycled(holder: ViewHolder) {
+        super.onViewRecycled(holder)
+        holder.itemView.animate().cancel()
+        resetRowTransform(holder.itemView)
+        holder.boundJobId = null
+    }
+
+    private fun resetRowTransform(view: View) {
+        view.animate().cancel()
+        view.translationX = 0f
+        view.translationY = 0f
+        view.alpha = 1f
     }
 
     object DiffCallback : DiffUtil.ItemCallback<DownloadJob>() {

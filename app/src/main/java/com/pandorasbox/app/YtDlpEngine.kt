@@ -10,6 +10,7 @@ data class FormatOption(
     val formatId: String,
     val height: Int,
     val label: String,
+    val language: String = "",
 )
 
 data class PlaylistEntry(
@@ -73,6 +74,26 @@ object YtDlpEngine {
     private fun getHelperModule(): PyObject {
         val py = Python.getInstance()
         return py.getModule("ytdlp_helper")
+    }
+
+    fun initCustomPath(targetDir: String) {
+        try {
+            val module = getHelperModule()
+            module.callAttr("load_custom_path", targetDir)
+        } catch (_: Exception) {}
+    }
+
+    suspend fun updateYtDlp(targetDir: String): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+        try {
+            val module = getHelperModule()
+            val resultStr = module.callAttr("update_ytdlp", targetDir).toString()
+            val json = JSONObject(resultStr)
+            val success = json.optString("status") == "success"
+            val message = if (success) json.optString("message", "yt-dlp updated successfully!") else json.optString("error", "Update failed")
+            Pair(success, message)
+        } catch (e: Exception) {
+            Pair(false, e.localizedMessage ?: "Failed to update yt-dlp engine")
+        }
     }
 
     suspend fun extractInfo(
@@ -143,7 +164,8 @@ object YtDlpEngine {
                             FormatOption(
                                 formatId = item.optString("format_id", ""),
                                 height = 0,
-                                label = item.optString("ext", "")
+                                label = item.optString("label", item.optString("ext", "")),
+                                language = item.optString("language", "")
                             )
                         )
                     }
@@ -177,6 +199,7 @@ object YtDlpEngine {
         referer: String? = null,
         userAgent: String? = null,
         ffmpegPath: String? = null,
+        audioFormatId: String? = null,
         onProgress: (DownloadProgress) -> Unit
     ): DownloadResult = withContext(Dispatchers.IO) {
         try {
@@ -206,6 +229,7 @@ object YtDlpEngine {
                 referer,
                 userAgent,
                 ffmpegPath,
+                audioFormatId,
                 pyCallback
             ).toString()
 

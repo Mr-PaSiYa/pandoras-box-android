@@ -9,6 +9,9 @@ object FFmpegHelper {
         val nativeLibDir = File(context.applicationInfo.nativeLibraryDir)
         val ffmpegSo = File(nativeLibDir, "libffmpeg.so")
         if (ffmpegSo.exists() && ffmpegSo.length() > 0L) {
+            try {
+                ffmpegSo.setExecutable(true, false)
+            } catch (_: Exception) {}
             return ffmpegSo.absolutePath
         }
 
@@ -18,6 +21,9 @@ object FFmpegHelper {
                 for (f in files) {
                     val name = f.name.lowercase()
                     if (name.contains("ffmpeg")) {
+                        try {
+                            f.setExecutable(true, false)
+                        } catch (_: Exception) {}
                         return f.absolutePath
                     }
                 }

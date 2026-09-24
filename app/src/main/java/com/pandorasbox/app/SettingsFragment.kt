@@ -1,6 +1,7 @@
 package com.pandorasbox.app
 
 import android.content.Intent
+import android.graphics.Paint
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -8,6 +9,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
@@ -23,6 +25,8 @@ class SettingsFragment : Fragment() {
     private lateinit var switchNotifications: MaterialSwitch
     private lateinit var btnSelectFolder: MaterialButton
     private lateinit var etSaveFolder: EditText
+    private lateinit var btnCheckUpdates: MaterialButton
+    private lateinit var tvUpdateStatus: TextView
 
     private val folderPickerLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
@@ -38,6 +42,19 @@ class SettingsFragment : Fragment() {
             DownloadManager.setDownloadFolder(path)
             etSaveFolder.setText(path)
             Toast.makeText(requireContext(), "Saved download folder", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Android 13+: asks "Allow Pandora's Box to send notifications?".
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            Toast.makeText(
+                requireContext(),
+                "Notifications are blocked by Android. Allow them in Settings > Apps > Pandora's Box > Notifications.",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 
@@ -60,6 +77,7 @@ class SettingsFragment : Fragment() {
 
         observeSettings()
         setupListeners()
+        setupAboutAndUpdates(view)
     }
 
     private fun observeSettings() {
@@ -98,8 +116,12 @@ class SettingsFragment : Fragment() {
             }
         })
 
-        switchNotifications.setOnCheckedChangeListener { _, _ ->
+        switchNotifications.setOnCheckedChangeListener { _, isChecked ->
             saveSettings()
+            // Turning it on is the moment to make sure Android will really allow notifications.
+            if (isChecked && DownloadNotifier.needsPermission(requireContext())) {
+                notificationPermissionLauncher.launch(DownloadNotifier.PERMISSION)
+            }
         }
 
         btnSelectFolder.setOnClickListener {
@@ -116,6 +138,34 @@ class SettingsFragment : Fragment() {
                 }
             }
         })
+    }
+
+    private fun setupAboutAndUpdates(view: View) {
+        val tvVersion = view.findViewById<TextView>(R.id.tv_app_version)
+        val tvGithubLink = view.findViewById<TextView>(R.id.tv_github_link)
+        val rowGithub = view.findViewById<View>(R.id.row_github)
+        btnCheckUpdates = view.findViewById(R.id.btn_check_updates)
+        tvUpdateStatus = view.findViewById(R.id.tv_update_status)
+
+        tvVersion.text = "Version ${UpdateChecker.currentVersionName(requireContext())}"
+        tvGithubLink.paintFlags = tvGithubLink.paintFlags or Paint.UNDERLINE_TEXT_FLAG
+
+        // GitHub link: the whole row is tappable.
+        rowGithub.setOnClickListener {
+            UpdateFlow.openUrl(requireContext(), UpdateChecker.GITHUB_REPO_URL)
+        }
+
+        // Manual update check (same flow as the automatic one at app start).
+        btnCheckUpdates.setOnClickListener {
+            val flow = (activity as? MainActivity)?.updateFlow ?: return@setOnClickListener
+            btnCheckUpdates.isEnabled = false
+            tvUpdateStatus.visibility = View.VISIBLE
+            tvUpdateStatus.text = "Checking for updates…"
+            flow.check(manual = true) { message ->
+                tvUpdateStatus.text = message
+                btnCheckUpdates.isEnabled = true
+            }
+        }
     }
 
     private fun saveSettings() {

@@ -1,5 +1,8 @@
 package com.pandorasbox.app
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -37,12 +40,14 @@ class HistoryFragment : Fragment() {
         rvHistory = view.findViewById(R.id.rv_history)
 
         historyAdapter = HistoryAdapter(
+            lifecycleScope = viewLifecycleOwner.lifecycleScope,
             onOpenFile = { path -> openFile(path) },
             onOpenFolder = { path -> openFolder(path) },
             onRetry = { job ->
                 DownloadManager.retryJob(job)
                 Toast.makeText(requireContext(), "Re-queued download!", Toast.LENGTH_SHORT).show()
-            }
+            },
+            onCopyLink = { url -> copyLinkToClipboard(url) }
         )
 
         rvHistory.layoutManager = LinearLayoutManager(requireContext())
@@ -62,6 +67,16 @@ class HistoryFragment : Fragment() {
                 historyAdapter.submitList(historyList)
             }
         }
+    }
+
+    private fun copyLinkToClipboard(url: String) {
+        if (url.isBlank()) {
+            Toast.makeText(requireContext(), "No link saved for this download.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("Download link", url))
+        Toast.makeText(requireContext(), "Link copied to clipboard.", Toast.LENGTH_SHORT).show()
     }
 
     private fun openFile(filePath: String) {

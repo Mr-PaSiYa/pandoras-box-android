@@ -14,10 +14,13 @@ import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -26,21 +29,24 @@ import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.materialswitch.MaterialSwitch
-import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class DownloadFragment : Fragment() {
 
-    private lateinit var etUrl: TextInputEditText
+    private lateinit var etUrl: EditText
     private lateinit var btnPaste: MaterialButton
-    private lateinit var layoutPreview: LinearLayout
+    private lateinit var layoutPreview: View
     private lateinit var ivThumbnail: ImageView
     private lateinit var tvPreviewTitle: TextView
     private lateinit var tvPreviewMeta: TextView
 
-    private lateinit var layoutPlaylistPanel: LinearLayout
+    private lateinit var layoutFetchStatus: View
+    private lateinit var progressFetch: ProgressBar
+    private lateinit var tvFetchStatus: TextView
+
+    private lateinit var layoutPlaylistPanel: View
     private lateinit var etPlaylistName: EditText
     private lateinit var switchNumbering: MaterialSwitch
     private lateinit var tvPlaylistCount: TextView
@@ -49,10 +55,18 @@ class DownloadFragment : Fragment() {
     private lateinit var spinnerFormat: Spinner
     private lateinit var spinnerQuality: Spinner
     private lateinit var layoutQualityContainer: LinearLayout
+    private lateinit var layoutAudioTrack: LinearLayout
+    private lateinit var spinnerAudioTrack: Spinner
     private lateinit var spinnerDuplicate: Spinner
 
     private lateinit var switchSubtitles: MaterialSwitch
     private lateinit var switchMetadata: MaterialSwitch
+
+    private lateinit var btnToggleAdvanced: View
+    private lateinit var layoutAdvancedContent: View
+    private lateinit var tvAdvancedArrow: TextView
+    private lateinit var btnInfoAdvanced: ImageView
+    private lateinit var spinnerUaPreset: Spinner
 
     private lateinit var etReferer: EditText
     private lateinit var etUserAgent: EditText
@@ -61,9 +75,36 @@ class DownloadFragment : Fragment() {
     private lateinit var btnDownload: MaterialButton
 
     private var previewJob: Job? = null
+    private var fetchJob: Job? = null
     private var currentPreviewResult: PreviewResult? = null
     private var playlistEntries = mutableListOf<PlaylistEntry>()
     private var playlistAdapter: PlaylistAdapter? = null
+
+    // Spinner entries for the Audio Track picker. Only filled when a video has 2+ audio tracks;
+    // empty otherwise (and then the spinner is hidden and no track id is sent).
+    private var currentAudioTrackOptions: List<FormatOption> = emptyList()
+
+    // Always the first entry. It has no format id, so choosing it (the default) means "no
+    // explicit track" and yt-dlp picks its normal audio exactly as it did before this feature.
+    private val automaticAudioTrack = FormatOption(formatId = "", height = 0, label = "Automatic (default)")
+
+    private var currentQualityOptions = listOf(
+        "Best available" to "best",
+        "2160p or lower" to "h:2160",
+        "1440p or lower" to "h:1440",
+        "1080p or lower" to "h:1080",
+        "720p or lower" to "h:720",
+        "480p or lower" to "h:480",
+        "360p or lower" to "h:360"
+    )
+
+    private val userAgentPresets = listOf(
+        "Default (Automatic)" to "",
+        "Chrome Windows (Desktop)" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "Chrome Android (Mobile)" to "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36",
+        "Safari macOS (Desktop)" to "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
+        "Firefox Windows (Desktop)" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
+    )
 
     private val folderPickerLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
@@ -106,6 +147,10 @@ class DownloadFragment : Fragment() {
         tvPreviewTitle = view.findViewById(R.id.tv_preview_title)
         tvPreviewMeta = view.findViewById(R.id.tv_preview_meta)
 
+        layoutFetchStatus = view.findViewById(R.id.layout_fetch_status)
+        progressFetch = view.findViewById(R.id.progress_fetch)
+        tvFetchStatus = view.findViewById(R.id.tv_fetch_status)
+
         layoutPlaylistPanel = view.findViewById(R.id.layout_playlist_panel)
         etPlaylistName = view.findViewById(R.id.et_playlist_name)
         switchNumbering = view.findViewById(R.id.switch_numbering)
@@ -115,10 +160,18 @@ class DownloadFragment : Fragment() {
         spinnerFormat = view.findViewById(R.id.spinner_format)
         spinnerQuality = view.findViewById(R.id.spinner_quality)
         layoutQualityContainer = view.findViewById(R.id.layout_quality_container)
+        layoutAudioTrack = view.findViewById(R.id.layout_audio_track)
+        spinnerAudioTrack = view.findViewById(R.id.spinner_audio_track)
         spinnerDuplicate = view.findViewById(R.id.spinner_duplicate)
 
         switchSubtitles = view.findViewById(R.id.switch_subtitles)
         switchMetadata = view.findViewById(R.id.switch_metadata)
+
+        btnToggleAdvanced = view.findViewById(R.id.btn_toggle_advanced)
+        layoutAdvancedContent = view.findViewById(R.id.layout_advanced_content)
+        tvAdvancedArrow = view.findViewById(R.id.tv_advanced_arrow)
+        btnInfoAdvanced = view.findViewById(R.id.btn_info_advanced)
+        spinnerUaPreset = view.findViewById(R.id.spinner_ua_preset)
 
         etReferer = view.findViewById(R.id.et_referer)
         etUserAgent = view.findViewById(R.id.et_user_agent)
@@ -132,35 +185,53 @@ class DownloadFragment : Fragment() {
     private fun setupSpinners() {
         val formatAdapter = ArrayAdapter(
             requireContext(),
-            android.R.layout.simple_spinner_item,
+            R.layout.item_spinner,
             listOf("MP4 · Video", "WebM · Video", "MP3 · Audio")
         ).apply {
-            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            setDropDownViewResource(R.layout.item_spinner_dropdown)
         }
         spinnerFormat.adapter = formatAdapter
 
         val qualityAdapter = ArrayAdapter(
             requireContext(),
-            android.R.layout.simple_spinner_item,
-            listOf("Best available", "2160p or lower", "1440p or lower", "1080p or lower", "720p or lower", "480p or lower", "360p or lower")
+            R.layout.item_spinner,
+            currentQualityOptions.map { it.first }
         ).apply {
-            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            setDropDownViewResource(R.layout.item_spinner_dropdown)
         }
         spinnerQuality.adapter = qualityAdapter
 
         val duplicateAdapter = ArrayAdapter(
             requireContext(),
-            android.R.layout.simple_spinner_item,
+            R.layout.item_spinner,
             listOf("Create a new copy", "Skip if file exists", "Overwrite existing file")
         ).apply {
-            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            setDropDownViewResource(R.layout.item_spinner_dropdown)
         }
         spinnerDuplicate.adapter = duplicateAdapter
+
+        val uaAdapter = ArrayAdapter(
+            requireContext(),
+            R.layout.item_spinner,
+            userAgentPresets.map { it.first }
+        ).apply {
+            setDropDownViewResource(R.layout.item_spinner_dropdown)
+        }
+        spinnerUaPreset.adapter = uaAdapter
 
         spinnerFormat.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val isMp3 = position == 2
                 layoutQualityContainer.isVisible = !isMp3
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        spinnerUaPreset.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val selectedUa = userAgentPresets.getOrNull(position)?.second ?: ""
+                etUserAgent.setText(selectedUa)
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {}
@@ -174,7 +245,6 @@ class DownloadFragment : Fragment() {
             if (clip != null && clip.itemCount > 0) {
                 val text = clip.getItemAt(0).text?.toString() ?: ""
                 etUrl.setText(text)
-                triggerPreview(text)
             } else {
                 Toast.makeText(requireContext(), "Clipboard is empty.", Toast.LENGTH_SHORT).show()
             }
@@ -185,6 +255,10 @@ class DownloadFragment : Fragment() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
                 previewJob?.cancel()
+                fetchJob?.cancel()
+                layoutFetchStatus.isVisible = false
+                // The old video's tracks must not be applied to whatever URL is typed next.
+                clearAudioTracks()
                 val text = s?.toString()?.trim() ?: ""
                 if (text.isNotBlank()) {
                     previewJob = viewLifecycleOwner.lifecycleScope.launch {
@@ -201,6 +275,20 @@ class DownloadFragment : Fragment() {
             folderPickerLauncher.launch(null)
         }
 
+        btnToggleAdvanced.setOnClickListener {
+            val isVis = layoutAdvancedContent.isVisible
+            layoutAdvancedContent.isVisible = !isVis
+            tvAdvancedArrow.text = if (!isVis) "▲" else "▼"
+        }
+
+        btnInfoAdvanced.setOnClickListener {
+            AlertDialog.Builder(requireContext())
+                .setTitle("Advanced Headers")
+                .setMessage("Referer and User-Agent headers help bypass anti-bot, geo-blocking, or hotlink protections used by certain websites.\n\n• Referer: Tells the site where you came from.\n• User-Agent: Tells the site what browser you are using.\n\nSelecting a preset automatically configures modern browser headers for troublesome sites.")
+                .setPositiveButton("OK", null)
+                .show()
+        }
+
         btnDownload.setOnClickListener {
             val rawText = etUrl.text?.toString()?.trim() ?: ""
             if (rawText.isBlank()) {
@@ -214,15 +302,9 @@ class DownloadFragment : Fragment() {
                 else -> "mp4"
             }
 
-            val quality = when (spinnerQuality.selectedItemPosition) {
-                1 -> "h:2160"
-                2 -> "h:1440"
-                3 -> "h:1080"
-                4 -> "h:720"
-                5 -> "h:480"
-                6 -> "h:360"
-                else -> "best"
-            }
+            val quality = currentQualityOptions.getOrNull(spinnerQuality.selectedItemPosition)?.second ?: "best"
+
+            val audioFormatId = selectedAudioFormatId()
 
             val duplicatePolicy = when (spinnerDuplicate.selectedItemPosition) {
                 1 -> "skip"
@@ -252,7 +334,8 @@ class DownloadFragment : Fragment() {
                     subtitles = subtitles,
                     embedMeta = embedMeta,
                     referer = referer,
-                    userAgent = userAgent
+                    userAgent = userAgent,
+                    audioFormatId = audioFormatId
                 )
                 Toast.makeText(requireContext(), "Playlist queued!", Toast.LENGTH_SHORT).show()
             } else if (lines.size > 1) {
@@ -264,7 +347,8 @@ class DownloadFragment : Fragment() {
                     subtitles = subtitles,
                     embedMeta = embedMeta,
                     referer = referer,
-                    userAgent = userAgent
+                    userAgent = userAgent,
+                    audioFormatId = audioFormatId
                 )
                 Toast.makeText(requireContext(), "Queued ${lines.size} downloads!", Toast.LENGTH_SHORT).show()
             } else {
@@ -278,7 +362,8 @@ class DownloadFragment : Fragment() {
                     subtitles = subtitles,
                     embedMeta = embedMeta,
                     referer = referer,
-                    userAgent = userAgent
+                    userAgent = userAgent,
+                    audioFormatId = audioFormatId
                 )
                 Toast.makeText(requireContext(), "Added to download queue!", Toast.LENGTH_SHORT).show()
             }
@@ -296,37 +381,77 @@ class DownloadFragment : Fragment() {
         }
     }
 
+    private fun showFetchStatus(message: String, isError: Boolean, showSpinner: Boolean) {
+        layoutFetchStatus.isVisible = true
+        progressFetch.isVisible = showSpinner
+        tvFetchStatus.text = message
+        tvFetchStatus.setTextColor(
+            if (isError) 0xFFEF5350.toInt()
+            else ContextCompat.getColor(requireContext(), R.color.text_secondary)
+        )
+    }
+
     private fun triggerPreview(urlStr: String) {
         val lines = urlStr.lines().map { it.trim() }.filter { it.isNotBlank() }
         if (lines.isEmpty()) return
 
         if (lines.size > 1) {
             resetPreviewUI()
-            btnDownload.text = "↓ Add ${lines.size} to Queue"
+            btnDownload.text = "Add ${lines.size} to Queue"
             return
         }
 
-        viewLifecycleOwner.lifecycleScope.launch {
+        fetchJob?.cancel()
+        fetchJob = viewLifecycleOwner.lifecycleScope.launch {
             val referer = etReferer.text.toString().trim()
             val userAgent = etUserAgent.text.toString().trim()
 
+            // Clear the old preview and tell the user we are working on it
+            currentPreviewResult = null
+            layoutPreview.isVisible = false
+            layoutPlaylistPanel.isVisible = false
+            showFetchStatus("Fetching video details…", isError = false, showSpinner = true)
+
+            val hintJob = launch {
+                delay(15_000)
+                showFetchStatus("Still fetching… this site is slow to respond.", isError = false, showSpinner = true)
+                delay(30_000)
+                showFetchStatus(
+                    "This is taking very long. You can keep waiting, or tap Add to Queue to try downloading anyway.",
+                    isError = false,
+                    showSpinner = true
+                )
+            }
+
             val ffmpegPath = FFmpegHelper.getFFmpegExecutablePath(requireContext())
-            val result = YtDlpEngine.extractInfo(
-                url = lines[0],
-                referer = referer.ifBlank { null },
-                userAgent = userAgent.ifBlank { null },
-                ffmpegPath = ffmpegPath
-            )
+            val result = try {
+                YtDlpEngine.extractInfo(
+                    url = lines[0],
+                    referer = referer.ifBlank { null },
+                    userAgent = userAgent.ifBlank { null },
+                    ffmpegPath = ffmpegPath
+                )
+            } finally {
+                hintJob.cancel()
+            }
             currentPreviewResult = result
 
             if (result.error != null) {
                 resetPreviewUI()
+                showFetchStatus(
+                    "Couldn't load video details: ${result.error}\nYou can still tap Add to Queue to try downloading.",
+                    isError = true,
+                    showSpinner = false
+                )
                 return@launch
             }
+
+            layoutFetchStatus.isVisible = false
 
             if (result.isPlaylist) {
                 layoutPreview.isVisible = false
                 layoutPlaylistPanel.isVisible = true
+                clearAudioTracks()
                 val info = result.playlistInfo
                 etPlaylistName.setText(info?.playlistTitle ?: "Playlist")
 
@@ -337,18 +462,86 @@ class DownloadFragment : Fragment() {
                     updatePlaylistCount()
                 }
                 rvPlaylistItems.adapter = playlistAdapter
+                playlistAdapter?.enableDragReorder(rvPlaylistItems)
                 updatePlaylistCount()
-                btnDownload.text = "↓ Download Playlist"
+                btnDownload.text = "Download Playlist"
             } else {
                 layoutPlaylistPanel.isVisible = false
                 layoutPreview.isVisible = true
                 val info = result.videoInfo
                 tvPreviewTitle.text = info?.title ?: "Untitled"
                 tvPreviewMeta.text = listOf(info?.uploader, info?.duration).filter { !it.isNullOrBlank() }.joinToString(" · ")
-                ivThumbnail.load(info?.thumbnail)
-                btnDownload.text = "↓ Add to Queue"
+
+                val vFormats = info?.videoFormats ?: emptyList()
+                if (vFormats.isNotEmpty()) {
+                    val qualityList = mutableListOf<Pair<String, String>>()
+                    qualityList.add("Best available" to "best")
+                    vFormats.forEach { f ->
+                        qualityList.add(f.label to "id:${f.formatId}:${f.height}")
+                    }
+                    currentQualityOptions = qualityList
+                    val qualityAdapter = ArrayAdapter(
+                        requireContext(),
+                        R.layout.item_spinner,
+                        qualityList.map { it.first }
+                    ).apply {
+                        setDropDownViewResource(R.layout.item_spinner_dropdown)
+                    }
+                    spinnerQuality.adapter = qualityAdapter
+                }
+
+                bindAudioTracks(info?.audioFormats ?: emptyList())
+
+                val thumbUrl = info?.thumbnail?.ifBlank { null }
+                if (!thumbUrl.isNullOrBlank()) {
+                    ivThumbnail.load(thumbUrl) {
+                        crossfade(true)
+                        placeholder(R.drawable.ic_download)
+                        error(R.drawable.ic_download)
+                    }
+                } else {
+                    ivThumbnail.setImageResource(R.drawable.ic_download)
+                }
+                btnDownload.text = "Add to Queue"
             }
         }
+    }
+
+    /** Hides the Audio Track picker and forgets its entries. */
+    private fun clearAudioTracks() {
+        currentAudioTrackOptions = emptyList()
+        layoutAudioTrack.isVisible = false
+    }
+
+    /**
+     * Shows the Audio Track picker only when the video really has 2+ tracks. The spinner gets
+     * an "Automatic (default)" entry first, followed by one entry per track.
+     */
+    private fun bindAudioTracks(tracks: List<FormatOption>) {
+        if (tracks.size < 2) {
+            clearAudioTracks()
+            return
+        }
+
+        currentAudioTrackOptions = listOf(automaticAudioTrack) + tracks
+        val audioTrackAdapter = ArrayAdapter(
+            requireContext(),
+            R.layout.item_spinner,
+            currentAudioTrackOptions.map { it.label }
+        ).apply {
+            setDropDownViewResource(R.layout.item_spinner_dropdown)
+        }
+        spinnerAudioTrack.adapter = audioTrackAdapter // a new adapter selects the first entry
+        layoutAudioTrack.isVisible = true
+    }
+
+    /** The yt-dlp format id of the chosen track, or null when no explicit track is chosen. */
+    private fun selectedAudioFormatId(): String? {
+        if (currentAudioTrackOptions.isEmpty()) return null
+        return currentAudioTrackOptions
+            .getOrNull(spinnerAudioTrack.selectedItemPosition)
+            ?.formatId
+            ?.ifBlank { null }
     }
 
     private fun updatePlaylistCount() {
@@ -358,8 +551,29 @@ class DownloadFragment : Fragment() {
 
     private fun resetPreviewUI() {
         currentPreviewResult = null
+        layoutFetchStatus.isVisible = false
         layoutPreview.isVisible = false
         layoutPlaylistPanel.isVisible = false
-        btnDownload.text = "↓ Add to Queue"
+        btnDownload.text = "Add to Queue"
+
+        clearAudioTracks()
+
+        currentQualityOptions = listOf(
+            "Best available" to "best",
+            "2160p or lower" to "h:2160",
+            "1440p or lower" to "h:1440",
+            "1080p or lower" to "h:1080",
+            "720p or lower" to "h:720",
+            "480p or lower" to "h:480",
+            "360p or lower" to "h:360"
+        )
+        val qualityAdapter = ArrayAdapter(
+            requireContext(),
+            R.layout.item_spinner,
+            currentQualityOptions.map { it.first }
+        ).apply {
+            setDropDownViewResource(R.layout.item_spinner_dropdown)
+        }
+        spinnerQuality.adapter = qualityAdapter
     }
 }

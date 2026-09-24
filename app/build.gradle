@@ -5,6 +5,12 @@ plugins {
 }
 
 android {
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     namespace 'com.pandorasbox.app'
     compileSdk 34
     buildToolsVersion "34.0.0"
@@ -24,6 +30,7 @@ android {
             buildPython "python"
             pip {
                 install "yt-dlp"
+                install "mutagen"
             }
         }
     }

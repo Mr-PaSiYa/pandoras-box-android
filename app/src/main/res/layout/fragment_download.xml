@@ -3,31 +3,50 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background_dark"
-    android:fillViewport="true">
+    android:background="@android:color/transparent"
+    android:clipToPadding="false"
+    android:fillViewport="true"
+    android:paddingBottom="90dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="20dp">
 
-        <TextView
-            android:layout_width="wrap_content"
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="New Download"
-            android:textColor="@color/text_primary"
-            android:textSize="22sp"
-            android:textStyle="bold" />
+            android:orientation="vertical">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:layout_marginBottom="16dp"
-            android:text="Paste a video, playlist, or several links (one per line)."
-            android:textColor="@color/text_secondary"
-            android:textSize="14sp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.15"
+                android:text="PANDORA'S BOX"
+                android:textColor="@color/accent_blue"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Universal Downloader"
+                android:textColor="@color/text_primary"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="16dp"
+                android:text="Download videos, audio and playlists with yt-dlp."
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp" />
+        </LinearLayout>
 
         <!-- Card: Input & Options -->
         <com.google.android.material.card.MaterialCardView
@@ -35,171 +54,222 @@
             android:layout_height="wrap_content"
             app:cardBackgroundColor="@color/surface_dark"
             app:cardCornerRadius="16dp"
-            app:cardElevation="4dp"
-            app:strokeColor="#233041"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/card_stroke"
             app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="18dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="VIDEO / PLAYLIST URL"
-                    android:textColor="@color/text_secondary"
+                    android:letterSpacing="0.08"
+                    android:text="VIDEO / PLAYLIST LINK"
+                    android:textColor="@color/text_muted"
                     android:textSize="11sp"
                     android:textStyle="bold" />
 
+                <!-- Single-Line Browser Style URL Address Bar Row -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:orientation="horizontal">
+                    android:background="@drawable/bg_input_box"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="4dp">
 
-                    <com.google.android.material.textfield.TextInputLayout
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="10dp"
+                        android:src="@drawable/ic_link"
+                        app:tint="@color/text_muted" />
+
+                    <EditText
+                        android:id="@+id/et_url"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_marginEnd="8dp"
                         android:layout_weight="1"
-                        app:boxBackgroundColor="#0C131B"
-                        app:boxCornerRadiusBottomEnd="10dp"
-                        app:boxCornerRadiusBottomStart="10dp"
-                        app:boxCornerRadiusTopEnd="10dp"
-                        app:boxCornerRadiusTopStart="10dp"
-                        app:boxStrokeColor="@color/accent_blue">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/et_url"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:hint="Paste video or playlist links..."
-                            android:inputType="textMultiLine"
-                            android:minLines="1"
-                            android:maxLines="5"
-                            android:textColor="@color/text_primary"
-                            android:textColorHint="@color/text_secondary"
-                            android:textSize="14sp" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                        android:background="@null"
+                        android:ellipsize="end"
+                        android:hint="Paste video or playlist link..."
+                        android:inputType="textUri"
+                        android:maxLines="1"
+                        android:paddingVertical="10dp"
+                        android:scrollHorizontally="true"
+                        android:singleLine="true"
+                        android:textColor="@color/text_primary"
+                        android:textColorHint="@color/text_muted"
+                        android:textSize="14sp" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_paste"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center_vertical"
-                        android:layout_marginStart="8dp"
+                        android:layout_height="40dp"
+                        android:layout_marginEnd="4dp"
                         android:text="Paste"
                         android:textAllCaps="false"
-                        app:backgroundTint="@color/card_dark"
+                        app:backgroundTint="@color/surface_dark"
                         app:cornerRadius="10dp"
-                        app:strokeColor="#2C3B4F"
+                        app:icon="@drawable/ic_paste"
+                        app:iconTint="@color/text_primary"
+                        app:strokeColor="@color/card_stroke"
                         app:strokeWidth="1dp" />
                 </LinearLayout>
 
-                <!-- Preview Card -->
+                <!-- Fetch status (spinner + message shown while video details load) -->
                 <LinearLayout
+                    android:id="@+id/layout_fetch_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <ProgressBar
+                        android:id="@+id/progress_fetch"
+                        style="?android:attr/progressBarStyleSmall"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:indeterminate="true"
+                        android:indeterminateTint="@color/accent_blue" />
+
+                    <TextView
+                        android:id="@+id/tv_fetch_status"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:maxLines="4"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <!-- Preview Card -->
+                <com.google.android.material.card.MaterialCardView
                     android:id="@+id/layout_preview"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:background="#141D29"
-                    android:orientation="horizontal"
-                    android:padding="10dp"
-                    android:visibility="gone">
-
-                    <ImageView
-                        android:id="@+id/iv_thumbnail"
-                        android:layout_width="110dp"
-                        android:layout_height="62dp"
-                        android:scaleType="centerCrop"
-                        android:src="@android:drawable/ic_menu_gallery" />
+                    android:layout_marginTop="14dp"
+                    android:visibility="gone"
+                    app:cardBackgroundColor="@color/card_dark"
+                    app:cardCornerRadius="14dp"
+                    app:strokeColor="@color/card_stroke"
+                    app:strokeWidth="1dp">
 
                     <LinearLayout
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
+                        android:orientation="horizontal"
+                        android:padding="12dp">
 
-                        <TextView
-                            android:id="@+id/tv_preview_title"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:ellipsize="end"
-                            android:maxLines="2"
-                            android:textColor="@color/text_primary"
-                            android:textSize="13sp"
-                            android:textStyle="bold" />
+                        <com.google.android.material.imageview.ShapeableImageView
+                            android:id="@+id/iv_thumbnail"
+                            android:layout_width="110dp"
+                            android:layout_height="68dp"
+                            android:scaleType="centerCrop"
+                            android:src="@android:drawable/ic_menu_gallery"
+                            app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.App.Corner10" />
 
-                        <TextView
-                            android:id="@+id/tv_preview_meta"
-                            android:layout_width="match_parent"
+                        <LinearLayout
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="11sp" />
+                            android:layout_marginStart="12dp"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tv_preview_title"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:ellipsize="end"
+                                android:maxLines="2"
+                                android:textColor="@color/text_primary"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tv_preview_meta"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:textColor="@color/accent_purple"
+                                android:textSize="11sp" />
+                        </LinearLayout>
                     </LinearLayout>
-                </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
 
                 <!-- Playlist Panel -->
-                <LinearLayout
+                <com.google.android.material.card.MaterialCardView
                     android:id="@+id/layout_playlist_panel"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:background="#141D29"
-                    android:orientation="vertical"
-                    android:padding="12dp"
-                    android:visibility="gone">
+                    android:layout_marginTop="14dp"
+                    android:visibility="gone"
+                    app:cardBackgroundColor="@color/card_dark"
+                    app:cardCornerRadius="14dp"
+                    app:strokeColor="@color/card_stroke"
+                    app:strokeWidth="1dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="PLAYLIST FOLDER NAME"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
-
-                    <EditText
-                        android:id="@+id/et_playlist_name"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:background="#0C131B"
-                        android:padding="10dp"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp" />
+                        android:orientation="vertical"
+                        android:padding="14dp">
 
-                    <com.google.android.material.materialswitch.MaterialSwitch
-                        android:id="@+id/switch_numbering"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:checked="true"
-                        android:text="Number files in order"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
-                        app:showText="false"
-                        android:textOn=""
-                        android:textOff="" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="PLAYLIST NAME"
+                            android:textColor="@color/text_muted"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
 
-                    <TextView
-                        android:id="@+id/tv_playlist_count"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
+                        <EditText
+                            android:id="@+id/et_playlist_name"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:background="@drawable/bg_input_box"
+                            android:padding="12dp"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp" />
 
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/rv_playlist_items"
-                        android:layout_width="match_parent"
-                        android:layout_height="200dp"
-                        android:layout_marginTop="8dp" />
-                </LinearLayout>
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switch_numbering"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:checked="true"
+                            android:text="Number files in order"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="13sp" />
 
-                <!-- Format & Quality Grid -->
+                        <TextView
+                            android:id="@+id/tv_playlist_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:textColor="@color/accent_cyan"
+                            android:textSize="12sp" />
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rv_playlist_items"
+                            android:layout_width="match_parent"
+                            android:layout_height="200dp"
+                            android:layout_marginTop="8dp" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Format & Quality Section -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -217,7 +287,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="FORMAT"
-                            android:textColor="@color/text_secondary"
+                            android:textColor="@color/text_muted"
                             android:textSize="11sp"
                             android:textStyle="bold" />
 
@@ -225,8 +295,8 @@
                             android:id="@+id/spinner_format"
                             android:layout_width="match_parent"
                             android:layout_height="48dp"
-                            android:layout_marginTop="4dp"
-                            android:background="#0C131B" />
+                            android:layout_marginTop="6dp"
+                            android:background="@drawable/bg_spinner" />
                     </LinearLayout>
 
                     <LinearLayout
@@ -240,8 +310,8 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="QUALITY"
-                            android:textColor="@color/text_secondary"
+                            android:text="MAX QUALITY"
+                            android:textColor="@color/text_muted"
                             android:textSize="11sp"
                             android:textStyle="bold" />
 
@@ -249,18 +319,43 @@
                             android:id="@+id/spinner_quality"
                             android:layout_width="match_parent"
                             android:layout_height="48dp"
-                            android:layout_marginTop="4dp"
-                            android:background="#0C131B" />
+                            android:layout_marginTop="6dp"
+                            android:background="@drawable/bg_spinner" />
                     </LinearLayout>
                 </LinearLayout>
 
-                <!-- Duplicate Policy -->
+                <!-- Audio Track (only shown when the video has 2+ audio tracks) -->
+                <LinearLayout
+                    android:id="@+id/layout_audio_track"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="AUDIO TRACK"
+                        android:textColor="@color/text_muted"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <Spinner
+                        android:id="@+id/spinner_audio_track"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="6dp"
+                        android:background="@drawable/bg_spinner" />
+                </LinearLayout>
+
+                <!-- Duplicate Handling -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="14dp"
                     android:text="DUPLICATE HANDLING"
-                    android:textColor="@color/text_secondary"
+                    android:textColor="@color/text_muted"
                     android:textSize="11sp"
                     android:textStyle="bold" />
 
@@ -268,21 +363,18 @@
                     android:id="@+id/spinner_duplicate"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
-                    android:layout_marginTop="4dp"
-                    android:background="#0C131B" />
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/bg_spinner" />
 
-                <!-- Toggle Switches -->
+                <!-- Options Switches -->
                 <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/switch_subtitles"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="14dp"
                     android:text="Download Subtitles"
                     android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    app:showText="false"
-                    android:textOn=""
-                    android:textOff="" />
+                    android:textSize="14sp" />
 
                 <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/switch_metadata"
@@ -291,58 +383,108 @@
                     android:layout_marginTop="6dp"
                     android:text="Embed Thumbnail &amp; Metadata"
                     android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    app:showText="false"
-                    android:textOn=""
-                    android:textOff="" />
+                    android:textSize="14sp" />
 
-                <!-- Advanced Expandable Section -->
+                <!-- Collapsible Advanced Headers -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    app:cardBackgroundColor="#141D29"
-                    app:cardCornerRadius="10dp"
-                    app:strokeColor="#2C3B4F"
+                    android:layout_marginTop="14dp"
+                    app:cardBackgroundColor="@color/card_dark"
+                    app:cardCornerRadius="12dp"
+                    app:strokeColor="@color/card_stroke"
                     app:strokeWidth="1dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="12dp">
+                        android:orientation="vertical">
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Advanced Headers (Optional)"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="12sp"
-                            android:textStyle="bold" />
-
-                        <EditText
-                            android:id="@+id/et_referer"
+                        <LinearLayout
+                            android:id="@+id/btn_toggle_advanced"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:background="#0C131B"
-                            android:hint="Referer (e.g. https://example.com/)"
-                            android:padding="8dp"
-                            android:textColor="@color/text_primary"
-                            android:textColorHint="@color/text_secondary"
-                            android:textSize="12sp" />
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:padding="14dp">
 
-                        <EditText
-                            android:id="@+id/et_user_agent"
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Advanced Headers (Optional)"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+
+                            <ImageView
+                                android:id="@+id/btn_info_advanced"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_marginEnd="8dp"
+                                android:background="?selectableItemBackgroundBorderless"
+                                android:src="@drawable/ic_info"
+                                app:tint="@color/accent_blue" />
+
+                            <TextView
+                                android:id="@+id/tv_advanced_arrow"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="▼"
+                                android:textColor="@color/text_muted"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/layout_advanced_content"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:background="#0C131B"
-                            android:hint="User-Agent"
-                            android:padding="8dp"
-                            android:textColor="@color/text_primary"
-                            android:textColorHint="@color/text_secondary"
-                            android:textSize="12sp" />
+                            android:orientation="vertical"
+                            android:paddingHorizontal="14dp"
+                            android:paddingBottom="14dp"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="PRESET USER-AGENT"
+                                android:textColor="@color/text_muted"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+
+                            <Spinner
+                                android:id="@+id/spinner_ua_preset"
+                                android:layout_width="match_parent"
+                                android:layout_height="46dp"
+                                android:layout_marginTop="4dp"
+                                android:background="@drawable/bg_spinner" />
+
+                            <EditText
+                                android:id="@+id/et_referer"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="10dp"
+                                android:background="@drawable/bg_input_box"
+                                android:hint="Referer (e.g. https://example.com/)"
+                                android:padding="10dp"
+                                android:textColor="@color/text_primary"
+                                android:textColorHint="@color/text_muted"
+                                android:textSize="12sp" />
+
+                            <EditText
+                                android:id="@+id/et_user_agent"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:background="@drawable/bg_input_box"
+                                android:hint="User-Agent string"
+                                android:padding="10dp"
+                                android:textColor="@color/text_primary"
+                                android:textColorHint="@color/text_muted"
+                                android:textSize="12sp" />
+                        </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
@@ -359,7 +501,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="SAVE LOCATION"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="@color/text_muted"
                         android:textSize="11sp"
                         android:textStyle="bold" />
 
@@ -368,7 +510,7 @@
                         style="@style/Widget.Material3.Button.TextButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Select Folder"
+                        android:text="Change"
                         android:textColor="@color/accent_blue"
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -378,10 +520,10 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:background="#0C131B"
+                    android:background="@drawable/bg_input_box"
                     android:ellipsize="middle"
+                    android:padding="12dp"
                     android:singleLine="true"
-                    android:padding="10dp"
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp" />
 
@@ -389,14 +531,17 @@
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_download"
                     android:layout_width="match_parent"
-                    android:layout_height="54dp"
+                    android:layout_height="56dp"
                     android:layout_marginTop="20dp"
-                    android:text="↓ Add to Queue"
+                    android:text="Add to Queue"
                     android:textAllCaps="false"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     app:backgroundTint="@color/accent_blue"
-                    app:cornerRadius="12dp" />
+                    app:cornerRadius="14dp"
+                    app:icon="@drawable/ic_download"
+                    app:iconGravity="textStart"
+                    app:iconTint="@color/text_primary" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

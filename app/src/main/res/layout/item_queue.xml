@@ -3,17 +3,18 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="10dp"
-    app:cardBackgroundColor="#141D29"
-    app:cardCornerRadius="12dp"
-    app:strokeColor="#233041"
+    android:layout_marginBottom="12dp"
+    app:cardBackgroundColor="@color/surface_dark"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="0dp"
+    app:strokeColor="@color/card_stroke"
     app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="14dp">
+        android:padding="16dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -40,9 +41,9 @@
                     android:id="@+id/tv_sub"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="3dp"
                     android:textColor="@color/text_secondary"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <TextView
@@ -50,9 +51,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:background="#233041"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="3dp"
+                android:background="@drawable/bg_bottom_nav"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp"
                 android:textColor="@color/accent_purple"
                 android:textSize="10sp"
                 android:textStyle="bold" />
@@ -62,22 +63,23 @@
             android:id="@+id/progress_bar"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
-            android:layout_height="6dp"
-            android:layout_marginTop="10dp"
-            android:progressDrawable="@android:drawable/progress_horizontal" />
+            android:layout_height="8dp"
+            android:layout_marginTop="12dp"
+            android:progressDrawable="@drawable/progress_bar_custom" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/tv_percent"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@color/text_primary"
-                android:textSize="11sp"
+                android:textColor="@color/accent_blue"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -101,7 +103,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
-                android:textColor="@color/text_secondary"
+                android:textColor="@color/text_muted"
                 android:textSize="11sp" />
         </LinearLayout>
 
@@ -109,14 +111,16 @@
             android:id="@+id/btn_cancel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="10dp"
             android:text="Cancel"
             android:textAllCaps="false"
-            android:textColor="#FF9195"
+            android:textColor="@color/accent_rose"
             android:textSize="12sp"
-            app:backgroundTint="#2A1B22"
-            app:cornerRadius="8dp"
-            app:strokeColor="#FF6B6F"
+            app:icon="@drawable/ic_cancel"
+            app:iconTint="@color/accent_rose"
+            app:backgroundTint="#2D1517"
+            app:cornerRadius="10dp"
+            app:strokeColor="#5F1D24"
             app:strokeWidth="1dp" />
 
     </LinearLayout>
