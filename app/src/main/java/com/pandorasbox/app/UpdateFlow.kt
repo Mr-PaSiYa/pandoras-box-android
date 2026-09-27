@@ -6,12 +6,23 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.graphics.Typeface
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.StyleSpan
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
+import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
@@ -118,25 +129,127 @@ class UpdateFlow(private val activity: FragmentActivity) : DefaultLifecycleObser
             activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
 
     private fun showUpdateDialog(info: UpdateInfo) {
-        val message = buildString {
-            append("Version ${info.versionName} is available (you have ${UpdateChecker.currentVersionName(activity)}).")
-            if (info.apkSize > 0) append("\nDownload size: ${formatSize(info.apkSize)}")
-            val notes = info.notes.trim()
-            if (notes.isNotEmpty()) {
-                append("\n\nWhat's new:\n")
-                append(if (notes.length > 600) notes.take(600) + "…" else notes)
+        val builder = MaterialAlertDialogBuilder(activity)
+        val ctx = builder.context
+        fun dp(value: Int) = (value * ctx.resources.displayMetrics.density).toInt()
+        fun color(attribute: Int): Int = TypedValue().let { value ->
+            ctx.theme.resolveAttribute(attribute, value, true)
+            value.data
+        }
+
+        val primary = color(R.attr.appTextPrimary)
+        val secondary = color(R.attr.appTextSecondary)
+        val accent = color(R.attr.appAccent)
+        val notes = info.notes.trim()
+
+        val content = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), 0, dp(24), 0)
+        }
+        content.addView(TextView(ctx).apply {
+            text = "Version ${info.versionName}"
+            setTextColor(primary)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTypeface(null, Typeface.BOLD)
+        })
+        content.addView(TextView(ctx).apply {
+            text = buildString {
+                append("Installed ${UpdateChecker.currentVersionName(activity)}")
+                if (info.apkSize > 0) append("  ·  ${formatSize(info.apkSize)} download")
+            }
+            setTextColor(secondary)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(4)
+        })
+
+        if (notes.isNotEmpty()) {
+            content.addView(TextView(ctx).apply {
+                text = "WHAT'S NEW"
+                setTextColor(accent)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                letterSpacing = 0.08f
+                setTypeface(null, Typeface.BOLD)
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(20)
+                bottomMargin = dp(8)
+            })
+
+            val screenHeight = ctx.resources.displayMetrics.heightPixels
+            val notesHeight = minOf((screenHeight * 0.55f).toInt(), screenHeight - dp(280)).coerceAtLeast(dp(80))
+            val scroll = BoundedNotesScrollView(ctx, notesHeight).apply {
+                isVerticalScrollBarEnabled = true
+                overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+                addView(TextView(ctx).apply {
+                    text = formatReleaseNotes(notes, primary, accent)
+                    setTextColor(primary)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                    setLineSpacing(dp(3).toFloat(), 1f)
+                    setPadding(0, 0, dp(4), dp(8))
+                })
+            }
+            content.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+
+        val skip = TextView(ctx).apply {
+            text = "Skip this version"
+            setTextColor(secondary)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            gravity = Gravity.CENTER_VERTICAL
+            minHeight = dp(48)
+            isClickable = true
+            isFocusable = true
+            val ripple = TypedValue()
+            ctx.theme.resolveAttribute(android.R.attr.selectableItemBackground, ripple, true)
+            if (ripple.resourceId != 0) setBackgroundResource(ripple.resourceId)
+            setOnClickListener {
+                prefs.edit().putString(KEY_IGNORED_VERSION, info.versionName).apply()
+                dialog?.dismiss()
             }
         }
+        content.addView(skip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply {
+            topMargin = dp(8)
+        })
+
         dialog?.dismiss()
-        dialog = MaterialAlertDialogBuilder(activity)
+        dialog = builder
             .setTitle("Update available")
-            .setMessage(message)
+            .setView(content)
             .setPositiveButton("Update") { _, _ -> startUpdate(info) }
             .setNegativeButton("Later", null)
-            .setNeutralButton("Skip this version") { _, _ ->
-                prefs.edit().putString(KEY_IGNORED_VERSION, info.versionName).apply()
-            }
             .show()
+        dialog?.window?.setLayout(
+            minOf(ctx.resources.displayMetrics.widthPixels - dp(32), dp(520)),
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
+    }
+
+    private fun formatReleaseNotes(markdown: String, primary: Int, accent: Int): CharSequence {
+        val result = SpannableStringBuilder()
+        val headingPattern = Regex("^(#{1,6})\\s+(.+)$")
+        val bulletPattern = Regex("^\\s*[-*+]\\s+(.+)$")
+        val lines = markdown.replace("\r\n", "\n").lines().dropLastWhile { it.isBlank() }
+        lines.forEachIndexed { index, raw ->
+            if (index > 0) result.append('\n')
+            val line = raw.trimEnd()
+            val heading = headingPattern.matchEntire(line.trimStart())
+            val bullet = bulletPattern.matchEntire(line)
+            val rendered = when {
+                heading != null -> heading.groupValues[2]
+                bullet != null -> "•  ${bullet.groupValues[1]}"
+                line.trim() == "```" -> ""
+                else -> line
+            }.replace("**", "").replace("`", "")
+            val start = result.length
+            result.append(rendered)
+            if (heading != null) {
+                val end = result.length
+                result.setSpan(StyleSpan(Typeface.BOLD), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                result.setSpan(RelativeSizeSpan(if (heading.groupValues[1].length == 1) 1.25f else 1.1f), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                result.setSpan(ForegroundColorSpan(if (heading.groupValues[1].length == 1) accent else primary), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+        return result
     }
 
     private fun showError(title: String, message: String, info: UpdateInfo? = null) {
@@ -261,4 +374,17 @@ class UpdateFlow(private val activity: FragmentActivity) : DefaultLifecycleObser
 
     private fun toast(message: String) =
         Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
+}
+
+/** Keeps long release notes scrollable while the dialog actions remain visible. */
+private class BoundedNotesScrollView(context: Context, private val maximumHeight: Int) : NestedScrollView(context) {
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val parentMode = View.MeasureSpec.getMode(heightMeasureSpec)
+        val allowedHeight = if (parentMode == View.MeasureSpec.UNSPECIFIED) {
+            maximumHeight
+        } else {
+            minOf(maximumHeight, View.MeasureSpec.getSize(heightMeasureSpec))
+        }
+        super.onMeasure(widthMeasureSpec, View.MeasureSpec.makeMeasureSpec(allowedHeight, View.MeasureSpec.AT_MOST))
+    }
 }
