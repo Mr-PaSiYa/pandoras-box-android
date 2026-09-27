@@ -63,5 +63,7 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.1'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
     implementation 'io.coil-kt:coil:2.6.0'
+    // The bundled ffmpeg CLI can demux audio but has no MP3 encoder.
+    implementation 'dev.ffmpegkit-maintained:ffmpeg-kit-audio:8.1.9'
 
 }

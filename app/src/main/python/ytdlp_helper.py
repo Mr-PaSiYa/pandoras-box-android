@@ -980,12 +980,8 @@ def configure_download_opts(o, format_type, quality, subtitles, embed_meta, has_
 
     pps = []
 
-    if format_type == "mp3" and has_ffmpeg:
-        pps.append({
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        })
+    # The bundled ffmpeg executable has no MP3 encoder. Android converts the
+    # downloaded source to a real MP3 with its separately bundled LAME encoder.
 
     # Subtitles: always downloaded when the switch is on; embedded into the video when possible.
     if subtitles and format_type != "mp3":
@@ -997,7 +993,7 @@ def configure_download_opts(o, format_type, quality, subtitles, embed_meta, has_
             pps.append({'key': 'FFmpegEmbedSubtitle', 'already_have_subtitle': False})
 
     # Metadata + thumbnail (cover art)
-    if embed_meta and has_ffmpeg and with_extras:
+    if embed_meta and has_ffmpeg and with_extras and format_type != "mp3":
         if EMBED_THUMBNAIL:
             o['writethumbnail'] = True
             pps.insert(0, {'key': 'FFmpegThumbnailsConvertor', 'format': 'jpg', 'when': 'before_dl'})
@@ -1145,11 +1141,16 @@ def download_video(url, output_path, format_type="mp4", quality="best", subtitle
     elif shutil.which("ffmpeg") is not None or shutil.which("ffmpeg.exe") is not None:
         has_ffmpeg = True
 
-    extras_wanted = has_ffmpeg and (embed_meta or (subtitles and EMBED_SUBTITLES_IN_VIDEO))
+    extras_wanted = has_ffmpeg and format_type != "mp3" and (embed_meta or (subtitles and EMBED_SUBTITLES_IN_VIDEO))
 
     def run_attempt(use_mobile_ua, with_extras):
         o = get_base_opts(url, referer, user_agent, ffmpeg_path, use_mobile_ua=use_mobile_ua)
-        o['outtmpl'] = output_path
+        if format_type == "mp3":
+            # Keep the real container extension (usually .m4a or .webm) until
+            # Android has successfully encoded the final .mp3.
+            o['outtmpl'] = os.path.splitext(output_path)[0] + '.%(ext)s'
+        else:
+            o['outtmpl'] = output_path
         o['progress_hooks'] = [hook]
         o['postprocessor_hooks'] = [pp_hook]
         configure_download_opts(o, format_type, quality, subtitles, embed_meta, has_ffmpeg, with_extras, audio_format_id=audio_format_id)
@@ -1167,9 +1168,6 @@ def download_video(url, output_path, format_type="mp4", quality="best", subtitle
         return final_path
 
     def finish(path, note=""):
-        if format_type == "mp3" and has_ffmpeg:
-            base, _ = os.path.splitext(path)
-            path = base + ".mp3"
         if progress_callback:
             progress_callback("completed", 100.0, "—", "—", "—", "—", note, "Completed", 0.0)
         return json.dumps({"status": "completed", "file_path": path, "warning": note})

@@ -2,6 +2,9 @@ package com.pandorasbox.app
 
 import android.content.Context
 import android.media.MediaScannerConnection
+import com.arthenica.ffmpegkit.FFmpegKit
+import com.arthenica.ffmpegkit.FFmpegSession
+import com.arthenica.ffmpegkit.ReturnCode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -19,6 +23,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import kotlin.coroutines.resume
 import kotlin.math.abs
 
 object DownloadManager {
@@ -748,10 +753,15 @@ object DownloadManager {
         // reports it on a progress event (progress.isDirectFile below), since Python itself does
         // not know until the normal yt-dlp attempts have already failed.
         val ffmpegAvailable = !ffmpegPath.isNullOrBlank()
+        // Use a job-specific source name so fetching MP3 audio cannot overwrite
+        // an existing M4A/WebM download that happens to share the title.
+        val downloadPath = if (downloadFormat == "mp3") {
+            File(outputFile.parentFile, "${outputFile.nameWithoutExtension}.mp3src-${job.id}.mp3").absolutePath
+        } else outputFile.absolutePath
 
         val result = YtDlpEngine.downloadVideo(
             url = job.url,
-            outputPath = outputFile.absolutePath,
+            outputPath = downloadPath,
             formatType = downloadFormat,
             quality = job.quality,
             subtitles = job.subtitles,
@@ -770,7 +780,9 @@ object DownloadManager {
                 val stageLabel = progress.stage.ifBlank {
                     if (progress.status == "downloading") "Downloading" else progress.status
                 }
-                current.status = progress.status
+                // yt-dlp is finished before a real MP3 exists. Keep the job active
+                // until the separate LAME conversion has succeeded.
+                current.status = if (downloadFormat == "mp3" && progress.status == "completed") "converting" else progress.status
 
                 // yt-dlp raw stage progress -> OverallProgressCalculator -> jobId-based overall
                 // monotonic guard -> DownloadJob.percent (see the pipeline doc comment above).
@@ -787,13 +799,14 @@ object DownloadManager {
                 // tell a legitimate total_bytes_estimate revision apart from ordinary jitter --
                 // see OverallProgressCalculator.update and ProgressUpdateResult.
                 val update = calculator.update(calcStageKey, progress.percent, progress.totalBytes)
-                current.percent = guardedOverallPercent(job.id, update.overallPercent, update.wasTotalRevision)
+                val overall = if (downloadFormat == "mp3") update.overallPercent.coerceAtMost(90f) else update.overallPercent
+                current.percent = guardedOverallPercent(job.id, overall, update.wasTotalRevision)
 
                 current.downloaded = progress.downloaded
                 current.total = progress.total
                 current.speed = progress.speed
                 current.eta = progress.eta
-                current.stage = stageLabel
+                current.stage = if (downloadFormat == "mp3" && progress.status == "completed") "Converting to MP3" else stageLabel
                 if (progress.error.isNotBlank()) {
                     current.error = progress.error
                 }
@@ -804,7 +817,18 @@ object DownloadManager {
 
         // ---- Universal-compatibility re-encode (video only) ----
         var finalPath = result.filePath ?: outputFile.absolutePath
+        var completed = result.success
+        var failure = result.error
         var conversionWarning = ""
+        if (completed && downloadFormat == "mp3") {
+            val conversion = convertToMp3(job, File(finalPath), outputFile)
+            if (conversion.file != null) {
+                finalPath = conversion.file.absolutePath
+            } else {
+                completed = false
+                failure = "MP3 conversion failed: ${conversion.error}"
+            }
+        }
         if (result.success && downloadFormat == "mp4" && ENABLE_UNIVERSAL_REENCODE) {
             val conversion = convertToUniversalMp4(job.id, File(finalPath), ffmpegPath)
             val convertedFile = conversion.file
@@ -817,7 +841,7 @@ object DownloadManager {
         }
 
         // Tell Android about the new file so it shows up in the Gallery / Photos apps.
-        if (result.success) {
+        if (completed) {
             try {
                 MediaScannerConnection.scanFile(appContext, arrayOf(finalPath), null, null)
             } catch (_: Exception) {
@@ -833,7 +857,7 @@ object DownloadManager {
             reservedOutputPaths.remove(pathKey(outputFile))
             updateActiveList()
 
-            if (result.success) {
+            if (completed) {
                 // Completed: show 100% before cleanup.
                 job.status = "completed"
                 job.stage = "Completed"
@@ -846,8 +870,8 @@ object DownloadManager {
                 // Failed: percent is left untouched, preserving wherever it was.
                 job.status = "failed"
                 job.stage = "Failed"
-                if (!result.error.isNullOrBlank()) {
-                    job.error = result.error
+                if (!failure.isNullOrBlank()) {
+                    job.error = failure
                 }
             }
             clearOverallProgressState(job.id)
@@ -869,6 +893,63 @@ object DownloadManager {
 
     private data class ConversionResult(val file: File?, val error: String = "")
 
+    /** Encode a real MP3; never label the downloaded AAC/WebM source as .mp3. */
+    private suspend fun convertToMp3(job: DownloadJob, source: File, requestedFile: File): ConversionResult {
+        if (!source.isFile || source.length() == 0L) return ConversionResult(null, "downloaded audio file is missing")
+        setStage(job.id, "converting", "Converting to MP3", 90f)
+
+        var target = if (requestedFile.name.contains("%(")) {
+            File(source.parentFile, "${source.nameWithoutExtension.removeSuffix(".mp3src-${job.id}")}.mp3")
+        } else requestedFile
+        // Batch downloads have a title template, so their final name could not
+        // be reserved before extraction. Never overwrite an older batch result.
+        if (requestedFile.name.contains("%(")) {
+            val stem = target.nameWithoutExtension
+            var copy = 1
+            while (target.exists() && target.absolutePath != source.absolutePath) {
+                target = File(target.parentFile, "$stem ($copy).mp3")
+                copy++
+            }
+        }
+        val temporary = File(target.parentFile, "${target.nameWithoutExtension}.${UUID.randomUUID()}.tmp.mp3")
+        val artwork = if (job.embedMeta) ThumbnailStore.ensure(appContext, job) else null
+        val args = mutableListOf("-hide_banner", "-nostdin", "-y", "-i", source.absolutePath)
+        if (artwork != null && artwork.isFile) args.addAll(listOf("-i", artwork.absolutePath))
+        args.addAll(listOf("-map", "0:a:0", "-map_metadata", "0", "-c:a", "libmp3lame", "-b:a", "192k"))
+        if (artwork != null && artwork.isFile) {
+            args.addAll(listOf("-map", "1:v:0", "-c:v", "copy", "-disposition:v", "attached_pic"))
+        }
+        if (job.embedMeta && job.title.isNotBlank()) args.addAll(listOf("-metadata", "title=${job.title}"))
+        args.addAll(listOf("-id3v2_version", "3", "-f", "mp3", temporary.absolutePath))
+
+        try {
+            val session = suspendCancellableCoroutine<FFmpegSession> { continuation ->
+                val started = FFmpegKit.executeWithArgumentsAsync(args.toTypedArray(), { finished ->
+                    if (continuation.isActive) continuation.resume(finished)
+                })
+                continuation.invokeOnCancellation { FFmpegKit.cancel(started.sessionId) }
+            }
+            if (!ReturnCode.isSuccess(session.returnCode) || !temporary.isFile || temporary.length() == 0L) {
+                val reason = session.allLogsAsString.lineSequence().filter { it.isNotBlank() }.toList().takeLast(3).joinToString(" ")
+                return ConversionResult(null, reason.ifBlank { "encoder exited with code ${session.returnCode}" }.take(300))
+            }
+            // Only replace the destination once conversion has completed and produced bytes.
+            if (target.exists() && !target.delete()) return ConversionResult(null, "could not replace existing MP3")
+            if (!temporary.renameTo(target)) {
+                temporary.copyTo(target, overwrite = false)
+                temporary.delete()
+            }
+            if (source.absolutePath != target.absolutePath) source.delete()
+            return ConversionResult(target)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return ConversionResult(null, e.message ?: "unknown conversion error")
+        } finally {
+            temporary.delete()
+        }
+    }
+
     private data class MediaInfo(val fps: Double?, val durationSec: Double?)
 
     private fun setStage(jobId: String, status: String, stage: String, percent: Float) {
@@ -876,14 +957,9 @@ object DownloadManager {
             val current = activeJobsMap[jobId] ?: return
             current.status = status
             current.stage = stage
-            // setStage's only caller is the universal re-encode ("converting") path, which is
-            // currently disabled (ENABLE_UNIVERSAL_REENCODE = false) and is therefore never
-            // actually invoked. "converting" is deliberately not one of OverallProgressCalculator's
-            // known stage names -- it is out of scope for this integration, and inventing a
-            // weighted slice for it here would be exactly the kind of fake progress requirement 6
-            // warns against. This still clamps the raw percent and applies the same job-level
-            // monotonic floor as the main pipeline, so percent can't regress if this path is ever
-            // re-enabled, but it does not run it through a calculator.
+            // Conversion starts after yt-dlp's progress stages. The MP3 path holds at
+            // 90% until encoding finishes; universal MP4 conversion has its own
+            // progress estimate. Neither stage is fed back into the download calculator.
             current.percent = guardedOverallPercent(jobId, percent, wasTotalRevision = false)
             updateActiveList()
             notifyProgress(current)
