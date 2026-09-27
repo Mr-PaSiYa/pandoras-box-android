@@ -4,10 +4,76 @@ import os
 import sys
 import shutil
 import importlib
+import io
+import subprocess
+from types import SimpleNamespace
+from urllib.parse import urlparse
 import yt_dlp
 
 DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 MOBILE_USER_AGENT = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+
+
+def enable_android_pornhub_curl():
+    """Use Android's system curl for a page Python's TLS client is refused for."""
+    curl_path = "/system/bin/curl"
+    if not os.path.isfile(curl_path):
+        return
+
+    from yt_dlp.extractor.pornhub import PornHubBaseIE
+    if getattr(PornHubBaseIE, "_android_curl_page_enabled", False):
+        return
+
+    original = PornHubBaseIE._download_webpage_handle
+    original_request = PornHubBaseIE._request_webpage
+
+    def curl_fetch(page_url, is_video_page):
+        curl_args = [curl_path, "--location", "--fail", "--silent", "--show-error",
+                     "--max-time", "30", "--retry", "2"]
+        if is_video_page:
+            curl_args.extend(["--cookie",
+                              "age_verified=1; accessAgeDisclaimerPH=1; accessAgeDisclaimerUK=1; accessPH=1; platform=pc"])
+        else:
+            curl_args.extend(["--header", "Origin: https://www.pornhub.com",
+                              "--header", "Referer: https://www.pornhub.com/"])
+        response = subprocess.run(
+            [*curl_args, page_url], capture_output=True, timeout=100, check=True)
+        return response.stdout
+
+    def download_page(self, url_or_request, *args, **kwargs):
+        page_url = getattr(url_or_request, "url", url_or_request)
+        parsed = urlparse(page_url) if isinstance(page_url, str) else None
+        is_video_page = parsed and parsed.hostname in ("pornhub.com", "www.pornhub.com") and parsed.path == "/view_video.php"
+        if is_video_page:
+            try:
+                webpage = curl_fetch(page_url, True).decode("utf-8", errors="replace")
+                if "flashvars_" in webpage:
+                    return webpage, SimpleNamespace(url=page_url)
+            except (OSError, subprocess.SubprocessError):
+                pass
+        return original(self, url_or_request, *args, **kwargs)
+
+    def request_playlist(self, url_or_request, *args, **kwargs):
+        page_url = getattr(url_or_request, "url", url_or_request)
+        parsed = urlparse(page_url) if isinstance(page_url, str) else None
+        if parsed and (parsed.hostname or "").endswith(".phncdn.com") and parsed.path.endswith(".m3u8"):
+            try:
+                content = curl_fetch(page_url, False)
+                if content.startswith(b"#EXTM3U"):
+                    response = io.BytesIO(content)
+                    response.url = page_url
+                    response.headers = {"Content-Type": "application/vnd.apple.mpegurl"}
+                    return response
+            except (OSError, subprocess.SubprocessError):
+                pass
+        return original_request(self, url_or_request, *args, **kwargs)
+
+    PornHubBaseIE._download_webpage_handle = download_page
+    PornHubBaseIE._request_webpage = request_playlist
+    PornHubBaseIE._android_curl_page_enabled = True
+
+
+enable_android_pornhub_curl()
 
 def unshorten_url(url):
     if not url:
@@ -51,6 +117,7 @@ def extract_friendly_error(text):
         (r"Sign in", "This video may require login."),
         (r"Video unavailable", "Video unavailable."),
         (r"HTTP Error 404", "Video or stream was not found."),
+        (r"HTTP Error 410", "This stream link is no longer valid. Paste the video page URL for a fresh stream."),
         (r"HTTP Error 403", "Access denied by the site."),
         (r"Requested format is not available", "The selected quality is not available."),
         (r"No video formats found", "No downloadable video formats were found."),
@@ -244,86 +311,34 @@ def sanitize_filename(name):
 def get_base_opts(url, referer=None, user_agent=None, ffmpeg_path=None, use_mobile_ua=False):
     url_lower = url.lower() if url else ""
 
-    cookie_str = None
     if not referer or not referer.strip():
-        if 'tiktok.com' in url_lower:
-            referer = url
-        elif any(dom in url_lower for dom in ['pornhub', 'phncdn', 'phub']):
-            referer = url if 'view_video.php' in url_lower else "https://www.pornhub.com/"
-            cookie_str = "age_verified=1; bs=1; accessAgeDisclaimerPH=1; hl=en"
-        elif 'xhamster' in url_lower:
-            referer = "https://xhamster.com/"
-            cookie_str = "age_verified=1;"
-        elif 'xvideos' in url_lower:
-            referer = "https://www.xvideos.com/"
-        elif 'spankbang' in url_lower:
-            referer = "https://spankbang.com/"
-            cookie_str = "age_verified=1; sb_age=18;"
-        elif 'redtube' in url_lower:
-            referer = "https://www.redtube.com/"
-            cookie_str = "age_verified=1; accessAgeDisclaimerRT=1;"
-        elif 'youporn' in url_lower:
-            referer = "https://www.youporn.com/"
-            cookie_str = "age_verified=1;"
-        elif 'instagram.com' in url_lower:
-            referer = "https://www.instagram.com/"
-        elif 'twitter.com' in url_lower or 'x.com' in url_lower:
-            referer = "https://x.com/"
-        elif 'youtube.com' in url_lower or 'youtu.be' in url_lower:
-            referer = "https://www.youtube.com/"
-        else:
-            referer = url
+        if 'phncdn.com' in url_lower:
+            referer = "https://www.pornhub.com/"
 
+    headers = {}
     if user_agent and user_agent.strip():
-        ua = user_agent.strip()
+        headers['User-Agent'] = user_agent.strip()
     elif use_mobile_ua:
-        ua = MOBILE_USER_AGENT
-    else:
-        ua = DEFAULT_USER_AGENT
-
-    headers = {
-        'User-Agent': ua,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Sec-Ch-Ua': '"Chromium";v="128", "Not=A?Brand";v="24", "Google Chrome";v="128"',
-        'Sec-Ch-Ua-Mobile': '?1' if use_mobile_ua else '?0',
-        'Sec-Ch-Ua-Platform': '"Android"' if use_mobile_ua else '"Windows"',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'cross-site',
-        'Sec-Fetch-User': '?1',
-        'Upgrade-Insecure-Requests': '1',
-    }
+        headers['User-Agent'] = MOBILE_USER_AGENT
     if referer:
         headers['Referer'] = referer
-    if cookie_str:
-        headers['Cookie'] = cookie_str
-
     opts = {
         'quiet': True,
         'no_warnings': True,
-        'nocheckcertificate': True,
         'age_limit': 18,
-        'geo_bypass': True,
-        'geo_bypass_country': 'US',
-        'http_headers': headers,
         'retries': 10,
         'fragment_retries': 10,
         'skip_unavailable_fragments': True,
-        'legacy_server_connect': True,
         'socket_timeout': 30,
         'check_formats': None,
         'format_sort': ['vcodec:h264', 'acodec:aac', 'res', 'fps', 'size'],
-        'extractor_args': {
-            'tiktok': {
-                'app_version': '30.0.0',
-                'manifest_app_version': '30.0.0',
-            },
-            'pornhub': {
-                'check_formats': ['hls', 'mp4'],
-            }
-        }
     }
+
+    if headers:
+        opts['http_headers'] = headers
+
+    if os.path.isfile("/system/bin/curl") and (urlparse(url).hostname or "").lower() in ("pornhub.com", "www.pornhub.com"):
+        opts['external_downloader'] = {'http': '/system/bin/curl', 'https': '/system/bin/curl'}
 
     if ffmpeg_path and os.path.exists(ffmpeg_path):
         opts['ffmpeg_location'] = ffmpeg_path
@@ -386,7 +401,9 @@ def parse_formats(info):
                 except Exception:
                     pass
 
-        if vcodec != "none":
+        # Some sites provide ready-to-play MP4 formats without codec metadata.
+        # A real height still makes these selectable video formats.
+        if vcodec != "none" or (height and f.get("vcodec") is None):
             h_val = int(height) if height else 0
             if h_val > 0:
                 entry = {
@@ -445,17 +462,6 @@ def parse_formats(info):
         else:
             f["label"] = name
 
-    if not video_list:
-        video_list.append({
-            "format_id": "best",
-            "height": 720,
-            "ext": info.get("ext") or "mp4",
-            "fps": 0,
-            "filesize": info.get("filesize") or info.get("filesize_approx") or 0,
-            "tbr": 0,
-            "label": "Best available"
-        })
-
     for f in video_list:
         if "label" not in f:
             fps = f["fps"]
@@ -511,13 +517,17 @@ def extract_info(url, referer=None, user_agent=None, ffmpeg_path=None):
 
     if is_playlist:
         entries = []
+        playlist_host = (urlparse(url).hostname or "").lower()
+        is_youtube_playlist = playlist_host in ("youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be")
         for entry in info.get('entries', []) or []:
             if not entry:
                 continue
-            entry_url = entry.get('url') or entry.get('webpage_url') or ""
-            if not entry_url.startswith("http"):
+            entry_url = entry.get('webpage_url') or entry.get('url') or ""
+            if not entry_url.startswith(("http://", "https://")):
                 vid = entry.get('id') or entry_url
-                entry_url = f"https://www.youtube.com/watch?v={vid}" if vid else ""
+                entry_url = f"https://www.youtube.com/watch?v={vid}" if is_youtube_playlist and vid else ""
+            if not entry_url:
+                continue
 
             entries.append({
                 "title": entry.get('title') or entry.get('id') or "Untitled",
@@ -601,11 +611,31 @@ def build_format_string(quality, container, has_ffmpeg=True, audio_format_id=Non
         alts.append("best")
         return "/".join(alts)
 
+    if container == "webm":
+        if quality and quality.startswith("id:"):
+            parts = quality.split(":")
+            fid = parts[1] if len(parts) > 1 else ""
+            if _SAFE_FORMAT_ID.fullmatch(fid):
+                selected_audio = f"{fid}+{audio_format_id}/" if audio_format_id else ""
+                return f"{selected_audio}{fid}+bestaudio[ext=webm]/{fid}+bestaudio/{fid}/bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]/best"
+        height_filter = ""
+        if quality and quality.startswith("h:") and quality[2:].isdigit():
+            height_filter = f"[height<={quality[2:]}]"
+        fallback = f"best{height_filter}" if height_filter else "best"
+        selected_audio = f"bestvideo[ext=webm]{height_filter}+{audio_format_id}/" if audio_format_id else ""
+        return (
+            f"{selected_audio}"
+            f"bestvideo[ext=webm]{height_filter}+bestaudio[ext=webm]/"
+            f"best[ext=webm]{height_filter}/"
+            f"bestvideo{height_filter}+bestaudio/"
+            f"{fallback}"
+        )
+
     if quality and quality.startswith("id:"):
         parts = quality.split(":")
         fid = parts[1] if len(parts) > 1 else ""
         height = parts[2] if len(parts) > 2 else ""
-        if fid:
+        if _SAFE_FORMAT_ID.fullmatch(fid) and height.isdigit():
             alts = []
             if container == "mp4":
                 if audio_format_id:
@@ -628,7 +658,7 @@ def build_format_string(quality, container, has_ffmpeg=True, audio_format_id=Non
                 alts.append("best")
             return "/".join(alts)
 
-    if quality and quality.startswith("h:"):
+    if quality and quality.startswith("h:") and quality[2:].isdigit():
         height = quality[2:]
         alts = []
         if container == "mp4":
@@ -718,6 +748,10 @@ def configure_download_opts(o, format_type, quality, subtitles, embed_meta, has_
             # Only the merge step gets these arguments, so thumbnail/subtitle steps are not affected.
             merge_args = ['-c:v', 'copy', '-c:a', 'aac', '-movflags', '+faststart']
             o['postprocessor_args'] = {'merger': merge_args, 'videoconvertor': merge_args}
+    elif format_type == "webm":
+        o['merge_output_format'] = 'webm'
+        if has_ffmpeg:
+            o['recode_video'] = 'webm'
 
     pps = []
 

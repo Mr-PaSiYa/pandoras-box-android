@@ -558,9 +558,12 @@ object DownloadManager {
             "%(title)s"
         }
 
-        // Video is always delivered as MP4 (never WebM/MKV). Audio keeps its own format.
         val audioOnly = isAudioOnly(job.format)
-        val downloadFormat = if (audioOnly) job.format.ifBlank { "mp3" } else "mp4"
+        val downloadFormat = when (job.format) {
+            "webm" -> "webm"
+            "mp3" -> "mp3"
+            else -> "mp4"
+        }
 
         // Duplicate handling runs here, BEFORE yt-dlp is started (see resolveOutputFile).
         when (val plan = resolveOutputFile(targetDir, baseFilename, downloadFormat, job.duplicatePolicy)) {
@@ -789,7 +792,7 @@ object DownloadManager {
         // ---- Universal-compatibility re-encode (video only) ----
         var finalPath = result.filePath ?: outputFile.absolutePath
         var conversionWarning = ""
-        if (result.success && !audioOnly && ENABLE_UNIVERSAL_REENCODE) {
+        if (result.success && downloadFormat == "mp4" && ENABLE_UNIVERSAL_REENCODE) {
             val conversion = convertToUniversalMp4(job.id, File(finalPath), ffmpegPath)
             val convertedFile = conversion.file
             if (convertedFile != null) {
