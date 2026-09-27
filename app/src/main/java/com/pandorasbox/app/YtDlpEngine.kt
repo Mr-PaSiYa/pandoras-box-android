@@ -48,7 +48,25 @@ data class DownloadProgress(
     val total: String,
     val speed: String,
     val eta: String,
-    val error: String = ""
+    val error: String = "",
+    // Human-readable label for the current stage of a multi-stage download
+    // (e.g. "Downloading video", "Downloading audio", "Merging", "Finishing").
+    // "percent" above is always relative to this stage, not the whole job.
+    val stage: String = "",
+    // Raw total byte count the helper used to compute "percent" for this update (0 when no
+    // total is known yet, e.g. a "started" postprocessor event). yt-dlp can revise this value
+    // mid-stage (an HLS/DASH size estimate becoming more accurate, for example), which is a
+    // legitimate change of basis, not jitter. The monotonic guard downstream uses this to tell
+    // "the total changed, so a lower percent is now correct" apart from "the same total just
+    // sent a noisy lower percent", instead of freezing on a stale value forever.
+    val totalBytes: Long = 0L,
+    // Real-time, internal-only signal: true once this invocation's Python side has actually
+    // entered the direct-file fallback path (download_direct_file()), false otherwise. This is
+    // NOT part of the 9-argument Python->Kotlin callback -- it is derived, per invocation, from
+    // a one-time sentinel status value that downloadVideo() below intercepts and never forwards.
+    // It is purely internal wiring for DownloadManager's progress-calculator selection and is
+    // never shown in the UI (stage/status text above are unaffected by it).
+    val isDirectFile: Boolean = false
 )
 
 data class DownloadResult(
@@ -65,7 +83,9 @@ fun interface PyProgressCallback {
         total: String,
         speed: String,
         eta: String,
-        error: String
+        error: String,
+        stage: String,
+        totalBytes: Double
     )
 }
 
@@ -205,18 +225,39 @@ object YtDlpEngine {
     ): DownloadResult = withContext(Dispatchers.IO) {
         try {
             val module = getHelperModule()
-            val pyCallback = PyProgressCallback { status, percent, downloaded, total, speed, eta, error ->
-                onProgress(
-                    DownloadProgress(
-                        status = status,
-                        percent = percent.toFloat(),
-                        downloaded = downloaded,
-                        total = total,
-                        speed = speed,
-                        eta = eta,
-                        error = error
+
+            // Per-invocation flag: local to this one downloadVideo() call (a fresh one is
+            // created on every call, including on resume), so it can never leak into another
+            // job's progress. Starts false; flips to true, and stays true for the rest of this
+            // invocation, the moment the Python side's one-time "direct_file_signal" sentinel
+            // arrives -- which happens before any real direct-file progress event (see
+            // ytdlp_helper.py's download_direct_file()).
+            var directFileDetected = false
+
+            val pyCallback = PyProgressCallback { status, percent, downloaded, total, speed, eta, error, stage, totalBytes ->
+                if (status == "direct_file_signal") {
+                    // Internal-only signal, not real progress: record it and swallow it here so
+                    // it never reaches DownloadManager as a DownloadProgress/status change.
+                    directFileDetected = true
+                } else {
+                    onProgress(
+                        DownloadProgress(
+                            status = status,
+                            // Defensive clamp: the helper should already send a sane 0-100 value, but
+                            // this is the boundary between the Python and Kotlin worlds, so it costs
+                            // nothing to make sure a stray out-of-range number can never leak through.
+                            percent = percent.toFloat().coerceIn(0f, 100f),
+                            downloaded = downloaded,
+                            total = total,
+                            speed = speed,
+                            eta = eta,
+                            error = error,
+                            stage = stage,
+                            totalBytes = totalBytes.toLong().coerceAtLeast(0L),
+                            isDirectFile = directFileDetected
+                        )
                     )
-                )
+                }
             }
 
             val resultStr = module.callAttr(
@@ -250,7 +291,8 @@ object YtDlpEngine {
                     total = "—",
                     speed = "—",
                     eta = "—",
-                    error = errMsg
+                    error = errMsg,
+                    stage = "Failed"
                 )
             )
             DownloadResult(success = false, error = errMsg)

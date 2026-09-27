@@ -52,6 +52,148 @@ object DownloadManager {
 
     private val AUDIO_ONLY_FORMATS = setOf("mp3", "m4a", "aac", "wav", "opus", "flac", "ogg")
 
+    // ------------------------------------------------------------------
+    // Overall progress pipeline
+    //
+    //   yt-dlp raw stage progress -> OverallProgressCalculator -> jobId-based
+    //   overall monotonic guard -> DownloadJob.percent -> existing UI/notification.
+    //
+    // This replaces the old (stage label, total bytes) -> percent guard. That guard keyed its
+    // floor on yt-dlp's raw, stage-relative percent, which is exactly what made it impossible to
+    // combine multiple stages (video/audio/merging/finishing) into one sane 0-100 job percent --
+    // each stage restarting near 0% looked like a regression to the UI. Two independent systems
+    // must never both be allowed to write DownloadJob.percent, so that old guard is gone; this is
+    // the only thing that computes DownloadJob.percent for a running job now.
+    //
+    // Two pieces of per-job state, both keyed by jobId (not by calculator instance), so they
+    // outlive any single calculator and are what actually survives pause/resume:
+    //
+    //  - jobCalculators   : one OverallProgressCalculator per running job, holding the weighted
+    //                       stage config appropriate to that job (video+audio+ffmpeg, video+audio
+    //                       without ffmpeg, audio-only, or the single-stage direct-file
+    //                       fallback -- see calculatorFor). Converts yt-dlp's stage-relative
+    //                       percent into one overall 0-100 percent.
+    //  - overallProgressGuard : jobId -> highest overall percent reached so far. This is a
+    //                       SEPARATE guard from the calculator's own internal monotonic guard
+    //                       (see OverallProgressCalculator's doc comment): the calculator's guard
+    //                       only lives as long as that calculator instance does, while this map
+    //                       is what protects monotonicity across an internal yt-dlp retry or any
+    //                       other event that could hand back a lower raw stage percentage without
+    //                       recreating the calculator. It always operates on the already-computed
+    //                       overall percentage, never on raw yt-dlp numbers.
+    //
+    // Pausing a job must NOT touch either map (see pauseQueue): the same job id resumes later and
+    // has to keep climbing from where it left off, even if yt-dlp restarts its current stage from
+    // a lower raw percentage after resume. Retrying from the UI always creates a brand new job id
+    // (see retryJob/enqueueDownload), so it naturally starts both maps fresh -- no explicit reset
+    // needed. Every real terminal path (completed, skipped, cancelled, failed) removes both
+    // entries for that job id via clearOverallProgressState.
+    // ------------------------------------------------------------------
+    private val jobCalculators = mutableMapOf<String, OverallProgressCalculator>()
+    private val overallProgressGuard = mutableMapOf<String, Float>()
+
+    // jobId -> whether the calculator currently cached in jobCalculators for that job was built
+    // for the direct-file fallback (DIRECT_FILE config) or a normal multi-stage download. Needed
+    // only to detect the one real-time transition described in calculatorFor's doc comment: a
+    // job that already produced some normal progress before yt-dlp fell back to the direct-file
+    // path. Cleared together with jobCalculators in clearOverallProgressState.
+    private val jobCalculatorIsDirectFile = mutableMapOf<String, Boolean>()
+
+    /**
+     * Returns this job's calculator, creating it (with the right weighted config) on first use
+     * and reusing the same instance for every later update -- including after resume, since the
+     * job id does not change and this map is never cleared on pause.
+     */
+    private fun calculatorFor(jobId: String, isDirectFile: Boolean, audioOnly: Boolean, ffmpegAvailable: Boolean): OverallProgressCalculator {
+        val existing = jobCalculators[jobId]
+        if (existing != null) {
+            // Edge case: normal yt-dlp attempts can already have produced some progress -- and
+            // therefore already created a normally-weighted calculator for this job -- before
+            // the real-time signal reports that the direct-file fallback has actually started
+            // (yt-dlp only falls back after its own attempts fail). isDirectFile flowing from
+            // false -> true for a job whose calculator already exists means exactly that
+            // transition, once, and the cached calculator is wrong for what the job is doing
+            // from now on, so it is replaced here with a fresh DIRECT_FILE one. This never fires
+            // the other direction (a direct-file job never becomes non-direct-file), and after
+            // the replacement this branch is not hit again for the same job, since
+            // jobCalculatorIsDirectFile is updated at the same time. The separate
+            // overallProgressGuard floor is untouched, so the percent shown in the UI still
+            // cannot move backwards even though the calculator itself restarts from 0 internally.
+            if (isDirectFile && jobCalculatorIsDirectFile[jobId] != true) {
+                val fresh = OverallProgressCalculator(ProgressConfig.DIRECT_FILE)
+                jobCalculators[jobId] = fresh
+                jobCalculatorIsDirectFile[jobId] = true
+                return fresh
+            }
+            return existing
+        }
+
+        val config = when {
+            // Direct-file fallback (e.g. TikTok's single combined stream): one undivided
+            // 0-100% stage. isDirectFile comes from YtDlpEngine's real-time signal (see
+            // downloadVideo's onProgress usage in runDownload), never from a URL/hostname guess.
+            isDirectFile -> ProgressConfig.DIRECT_FILE
+            audioOnly -> ProgressConfig.AUDIO_ONLY
+            ffmpegAvailable -> ProgressConfig.VIDEO_AUDIO_FFMPEG
+            else -> ProgressConfig.VIDEO_AUDIO_NO_FFMPEG
+        }
+        jobCalculatorIsDirectFile[jobId] = isDirectFile
+        return OverallProgressCalculator(config).also { jobCalculators[jobId] = it }
+    }
+
+    /**
+     * Applies the jobId -> highest-overall-percent-reached floor described above.
+     *
+     * Normally this only ever raises the floor (`maxOf`), which is what protects e.g. the
+     * direct-file fallback's fresh calculator restarting its own internal percent from 0 -- see
+     * calculatorFor's doc comment. The one deliberate exception is [wasTotalRevision]: when
+     * OverallProgressCalculator reports that this update corrected a stale denominator (an
+     * HLS/DASH total_bytes_estimate revision -- see its own doc comment), the old floor was
+     * computed against that stale total and is itself wrong, so it is replaced with the
+     * corrected value instead of clamping it back up. This is the only path in DownloadManager
+     * that can lower this guard's floor, and it only fires on the calculator's explicit signal
+     * -- never merely because a calculator is new (a fresh calculator's first update always
+     * reports wasTotalRevision = false; see OverallProgressCalculator.update).
+     */
+    private fun guardedOverallPercent(jobId: String, overallPercent: Float, wasTotalRevision: Boolean): Float {
+        val clamped = overallPercent.coerceIn(0f, 100f)
+        val guarded = if (wasTotalRevision) {
+            clamped
+        } else {
+            val floor = overallProgressGuard[jobId] ?: 0f
+            maxOf(floor, clamped)
+        }
+        overallProgressGuard[jobId] = guarded
+        return guarded
+    }
+
+    /**
+     * Maps yt-dlp/the Python helper's free-text stage label onto the fixed stage keys
+     * ProgressConfig understands ("video" / "audio" / "merging" / "finishing"). This is
+     * deliberately forgiving of either short raw tokens or the human-readable labels described
+     * where stageLabel is built below ("Downloading video", "Merging", ...): it matches on
+     * keyword, not exact string. A label that matches nothing known falls through unchanged, and
+     * OverallProgressCalculator safely ignores unknown stage names (no crash, no invented
+     * weight; see its own doc comment) -- so an unexpected label never corrupts overall percent.
+     */
+    private fun normalizeStageKey(rawStage: String): String {
+        val lower = rawStage.lowercase(Locale.US)
+        return when {
+            "merg" in lower -> "merging"
+            "finish" in lower -> "finishing"
+            "audio" in lower -> "audio"
+            "video" in lower -> "video"
+            else -> lower
+        }
+    }
+
+    /** Removes every piece of per-job progress state. Called on every real terminal path. */
+    private fun clearOverallProgressState(jobId: String) {
+        jobCalculators.remove(jobId)
+        jobCalculatorIsDirectFile.remove(jobId)
+        overallProgressGuard.remove(jobId)
+    }
+
     private fun isAudioOnly(format: String): Boolean =
         format.trim().lowercase(Locale.US) in AUDIO_ONLY_FORMATS
 
@@ -330,9 +472,12 @@ object DownloadManager {
             if (job != null) {
                 job.status = "cancelled"
                 job.stage = "Cancelled"
+                // Percent is deliberately left untouched -- cancelled jobs preserve wherever
+                // progress had reached.
                 addToHistory(job)
                 activeJobsMap.remove(jobId)
                 runningJobIds.remove(jobId)
+                clearOverallProgressState(jobId)
                 updateActiveList()
                 DownloadNotifier.cancel(appContext, jobId)
             }
@@ -565,9 +710,12 @@ object DownloadManager {
             job.stage = stage
             job.error = message
             if (success) {
+                // Skipped (a completed-without-downloading job): show 100% before cleanup.
                 job.percent = 100f
                 job.filePath = filePath
             }
+            // Failed-before-download: percent is left untouched, preserving wherever it was.
+            clearOverallProgressState(job.id)
             addToHistory(job)
             notifyFinished(job)
         }
@@ -577,6 +725,13 @@ object DownloadManager {
     /** The actual yt-dlp download and everything that follows it. */
     private suspend fun runDownload(job: DownloadJob, outputFile: File, downloadFormat: String, audioOnly: Boolean) {
         val ffmpegPath = FFmpegHelper.getFFmpegExecutablePath(appContext)
+
+        // audioOnly/ffmpegAvailable are stable for the whole job (the format doesn't change;
+        // ffmpeg availability doesn't change mid-job). Whether this job is using the direct-file
+        // fallback is NOT decided up front: it is only known once YtDlpEngine's real-time signal
+        // reports it on a progress event (progress.isDirectFile below), since Python itself does
+        // not know until the normal yt-dlp attempts have already failed.
+        val ffmpegAvailable = !ffmpegPath.isNullOrBlank()
 
         val result = YtDlpEngine.downloadVideo(
             url = job.url,
@@ -592,13 +747,37 @@ object DownloadManager {
         ) { progress ->
             synchronized(this) {
                 val current = activeJobsMap[job.id] ?: return@downloadVideo
+                // The Python helper tags every update with its own stage (e.g. "Downloading
+                // video" / "Downloading audio" / "Merging" / "Finishing") and a percent that is
+                // relative to that stage only. Fall back to the old generic label if a stage is
+                // ever missing (e.g. from an older cached helper module).
+                val stageLabel = progress.stage.ifBlank {
+                    if (progress.status == "downloading") "Downloading" else progress.status
+                }
                 current.status = progress.status
-                current.percent = progress.percent
+
+                // yt-dlp raw stage progress -> OverallProgressCalculator -> jobId-based overall
+                // monotonic guard -> DownloadJob.percent (see the pipeline doc comment above).
+                // This is the ONLY place that writes DownloadJob.percent for a running job now.
+                // progress.isDirectFile is YtDlpEngine's real-time signal: false for every event
+                // until (and unless) the Python side actually enters the direct-file fallback
+                // path, then true for the rest of this invocation -- see the doc comment on
+                // calculatorFor for how a job that already has a normal calculator handles that
+                // transition.
+                val calcStageKey = if (progress.isDirectFile) "video" else normalizeStageKey(progress.stage)
+                val calculator = calculatorFor(job.id, progress.isDirectFile, audioOnly, ffmpegAvailable)
+                // progress.totalBytes is the raw denominator the Python helper used to compute
+                // progress.percent for this update (0 when unknown). The calculator uses it to
+                // tell a legitimate total_bytes_estimate revision apart from ordinary jitter --
+                // see OverallProgressCalculator.update and ProgressUpdateResult.
+                val update = calculator.update(calcStageKey, progress.percent, progress.totalBytes)
+                current.percent = guardedOverallPercent(job.id, update.overallPercent, update.wasTotalRevision)
+
                 current.downloaded = progress.downloaded
                 current.total = progress.total
                 current.speed = progress.speed
                 current.eta = progress.eta
-                current.stage = if (progress.status == "downloading") "Downloading" else progress.status
+                current.stage = stageLabel
                 if (progress.error.isNotBlank()) {
                     current.error = progress.error
                 }
@@ -639,6 +818,7 @@ object DownloadManager {
             updateActiveList()
 
             if (result.success) {
+                // Completed: show 100% before cleanup.
                 job.status = "completed"
                 job.stage = "Completed"
                 job.percent = 100f
@@ -647,12 +827,14 @@ object DownloadManager {
                     job.error = conversionWarning
                 }
             } else {
+                // Failed: percent is left untouched, preserving wherever it was.
                 job.status = "failed"
                 job.stage = "Failed"
                 if (!result.error.isNullOrBlank()) {
                     job.error = result.error
                 }
             }
+            clearOverallProgressState(job.id)
             addToHistory(job)
             notifyFinished(job)
         }
@@ -678,7 +860,15 @@ object DownloadManager {
             val current = activeJobsMap[jobId] ?: return
             current.status = status
             current.stage = stage
-            current.percent = percent
+            // setStage's only caller is the universal re-encode ("converting") path, which is
+            // currently disabled (ENABLE_UNIVERSAL_REENCODE = false) and is therefore never
+            // actually invoked. "converting" is deliberately not one of OverallProgressCalculator's
+            // known stage names -- it is out of scope for this integration, and inventing a
+            // weighted slice for it here would be exactly the kind of fake progress requirement 6
+            // warns against. This still clamps the raw percent and applies the same job-level
+            // monotonic floor as the main pipeline, so percent can't regress if this path is ever
+            // re-enabled, but it does not run it through a calculator.
+            current.percent = guardedOverallPercent(jobId, percent, wasTotalRevision = false)
             updateActiveList()
             notifyProgress(current)
         }

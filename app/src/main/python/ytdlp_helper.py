@@ -137,6 +137,18 @@ def extract_tiktok_native(url):
 def download_direct_file(direct_url, output_path, referer=None, user_agent=None, progress_callback=None):
     import urllib.request
 
+    # Real-time internal signal: fires once, here, at the true moment the direct-file fallback
+    # path starts -- this function has exactly one caller (the TikTok native fallback branch in
+    # download_video()), so reaching this line IS the "actual direct-file execution path"
+    # Kotlin needs to know about, no guessing involved. This reuses the existing 9-argument
+    # progress_callback signature rather than adding a 10th argument: the "status" slot is set
+    # to a value ("direct_file_signal") that never appears in a real progress update (those are
+    # only "downloading" / "completed" / "failed"), so Kotlin can recognize and swallow this one
+    # call internally instead of forwarding it as a status/stage change. The "stage" slot is left
+    # as the normal user-facing label so nothing user-visible depends on this being intercepted.
+    if progress_callback:
+        progress_callback("direct_file_signal", 0.0, "—", "—", "—", "—", "", "Downloading video", 0.0)
+
     headers = {
         'User-Agent': user_agent or DEFAULT_USER_AGENT,
         'Referer': referer or 'https://www.tiktok.com/',
@@ -166,17 +178,21 @@ def download_direct_file(direct_url, output_path, referer=None, user_agent=None,
                             format_bytes(total_size),
                             "—",
                             "—",
-                            ""
+                            "",
+                            "Downloading video",
+                            float(total_size)
                         )
 
         if progress_callback:
-            progress_callback("completed", 100.0, "—", "—", "—", "—", "")
-        return json.dumps({"status": "completed", "file_path": output_path})
+            progress_callback("completed", 100.0, "—", "—", "—", "—", "", "Completed", 0.0)
+        # Optional, secondary to the real-time signal above: lets anything that only looks at
+        # the final JSON result (e.g. logs, future debugging) also see that this path was used.
+        return json.dumps({"status": "completed", "file_path": output_path, "used_direct_file": True})
     except Exception as e:
         err_msg = str(e)
         if progress_callback:
-            progress_callback("failed", 0.0, "—", "—", "—", "—", err_msg)
-        return json.dumps({"status": "failed", "error": err_msg})
+            progress_callback("failed", 0.0, "—", "—", "—", "—", err_msg, "Failed", 0.0)
+        return json.dumps({"status": "failed", "error": err_msg, "used_direct_file": True})
 
 def load_custom_path(target_dir):
     if target_dir and os.path.exists(target_dir):
@@ -749,16 +765,65 @@ def cleanup_thumbnail_files(path):
 
 
 def download_video(url, output_path, format_type="mp4", quality="best", subtitles=False, embed_meta=False, referer=None, user_agent=None, ffmpeg_path=None, audio_format_id=None, progress_callback=None):
+    # yt-dlp downloads video and audio as two separate streams (then merges them) whenever the
+    # chosen format needs it. Each stream's own progress hook only knows about ITS bytes, so a
+    # naive "downloaded/total" percent restarts at 0 for the second stream -- which used to look
+    # like the bar jumping around. We instead tag every update with which stage produced it
+    # ("Downloading video" / "Downloading audio" / "Merging" / "Finishing"), each with its own
+    # independent 0-100 percent. The UI keeps the highest percent seen PER STAGE, so switching
+    # stages is a legitimate reset instead of a backwards jump.
+    def stream_stage_label(d):
+        info = d.get('info_dict') or {}
+        vcodec = info.get('vcodec')
+        acodec = info.get('acodec')
+        has_video = vcodec not in (None, 'none')
+        has_audio = acodec not in (None, 'none')
+        if has_audio and not has_video:
+            return "Downloading audio"
+        return "Downloading video"
+
     def hook(d):
         if progress_callback is None:
             return
         status = d.get('status')
+        stage_label = stream_stage_label(d)
         if status == 'downloading':
-            total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
             downloaded = d.get('downloaded_bytes') or 0
             speed = d.get('speed') or 0
             eta = d.get('eta') or 0
-            percent = (downloaded / total * 100.0) if total > 0 else 0.0
+
+            # Always derive the percent from bytes -- never from yt-dlp's own percent string --
+            # but not every "total" is equally trustworthy:
+            #   - total_bytes comes straight from the Content-Length header: exact.
+            #   - total_bytes_estimate is a GUESS (used for HLS/DASH streams that don't expose a
+            #     byte size up front) and yt-dlp is free to REVISE it as more fragments arrive.
+            # We used to cap an estimate-based percent at 99% to hide the case where an early,
+            # too-small estimate briefly claimed "done". That cap is exactly what caused the
+            # opposite bug: once an early lowball estimate pushed percent up to the 99% ceiling,
+            # the Kotlin side's "never go backwards" guard latched onto that 99% and kept showing
+            # it even after yt-dlp revised the estimate upward and the true ratio (downloaded /
+            # real total) was e.g. 8%. A percent frozen at a hard-coded cap forever is worse than
+            # letting it briefly overshoot and self-correct.
+            #
+            # So there is no cap here beyond the natural 0-100 range, and we always use whichever
+            # total is currently best (exact over estimate). We also report which raw total byte
+            # count we're using (0 if none), so the Kotlin layer can tell a genuine total
+            # *revision* apart from ordinary jitter and reset its backwards-guard accordingly
+            # instead of freezing on a stale, now-wrong percent (requirement: total_bytes is
+            # allowed to update; only true jitter within the SAME total should be smoothed).
+            exact_total = d.get('total_bytes') or 0
+            estimated_total = d.get('total_bytes_estimate') or 0
+            total_for_percent = exact_total or estimated_total
+
+            if total_for_percent > 0:
+                total_for_display = total_for_percent
+                percent = min((downloaded / total_for_percent) * 100.0, 100.0)
+            else:
+                # No total known yet at all -- report 0 rather than guessing, since we genuinely
+                # don't know how far along we are.
+                total_for_display = 0
+                percent = 0.0
+            percent = max(0.0, percent)
 
             speed_str = f"{format_bytes(speed)}/s" if speed else "—"
             eta_mins, eta_secs = divmod(int(eta), 60)
@@ -768,13 +833,50 @@ def download_video(url, output_path, format_type="mp4", quality="best", subtitle
                 "downloading",
                 float(percent),
                 format_bytes(downloaded),
-                format_bytes(total),
+                format_bytes(total_for_display) if total_for_display > 0 else "—",
                 speed_str,
                 eta_str,
-                ""
+                "",
+                stage_label,
+                float(total_for_display)
             )
         elif status == 'finished':
-            progress_callback("processing", 99.0, "—", "—", "—", "—", "")
+            # This one stream (video, or audio) is fully downloaded. Derive the percent from its
+            # own bytes rather than blindly assuming 100 (requirement: never blindly trust a
+            # percent when bytes are available) -- in practice downloaded should equal total here,
+            # so this still ends up at/near 100%, but it is now a computed fact, not an assumption.
+            # If another stream still needs downloading, its 'downloading' hook will carry a
+            # different stage label, so restarting at 0% for it is expected, not a glitch.
+            downloaded = d.get('downloaded_bytes') or 0
+            total = d.get('total_bytes') or d.get('total_bytes_estimate') or downloaded
+            percent = min((downloaded / total) * 100.0, 100.0) if total > 0 else 100.0
+            progress_callback(
+                "downloading",
+                float(max(0.0, percent)),
+                format_bytes(downloaded),
+                format_bytes(total) if total > 0 else "—",
+                "—",
+                "—",
+                "",
+                stage_label,
+                float(total)
+            )
+
+    def pp_hook(d):
+        # Fires for postprocessing steps that run after both streams are downloaded: merging
+        # video+audio, embedding subtitles/thumbnail/metadata, etc. yt-dlp does not expose a
+        # fine-grained percent for these (they're usually near-instant stream copies), so we
+        # report a started/finished pair per step -- effectively an indeterminate 0 -> 100.
+        if progress_callback is None:
+            return
+        name = d.get('postprocessor', '')
+        status = d.get('status')
+        is_merge = name == 'Merger'
+        stage_label = "Merging" if is_merge else "Finishing"
+        if status == 'started':
+            progress_callback("downloading", 0.0, "—", "—", "—", "—", "", stage_label, 0.0)
+        elif status == 'finished':
+            progress_callback("downloading", 100.0, "—", "—", "—", "—", "", stage_label, 0.0)
 
     url = unshorten_url(url.strip())
 
@@ -790,6 +892,7 @@ def download_video(url, output_path, format_type="mp4", quality="best", subtitle
         o = get_base_opts(url, referer, user_agent, ffmpeg_path, use_mobile_ua=use_mobile_ua)
         o['outtmpl'] = output_path
         o['progress_hooks'] = [hook]
+        o['postprocessor_hooks'] = [pp_hook]
         configure_download_opts(o, format_type, quality, subtitles, embed_meta, has_ffmpeg, with_extras, audio_format_id=audio_format_id)
 
         final_path = output_path
@@ -809,7 +912,7 @@ def download_video(url, output_path, format_type="mp4", quality="best", subtitle
             base, _ = os.path.splitext(path)
             path = base + ".mp3"
         if progress_callback:
-            progress_callback("completed", 100.0, "—", "—", "—", "—", note)
+            progress_callback("completed", 100.0, "—", "—", "—", "—", note, "Completed", 0.0)
         return json.dumps({"status": "completed", "file_path": path, "warning": note})
 
     last_err = None
@@ -850,5 +953,5 @@ def download_video(url, output_path, format_type="mp4", quality="best", subtitle
 
     err_msg = describe_error(last_err)
     if progress_callback:
-        progress_callback("failed", 0.0, "—", "—", "—", "—", err_msg)
+        progress_callback("failed", 0.0, "—", "—", "—", "—", err_msg, "Failed", 0.0)
     return json.dumps({"status": "failed", "error": err_msg})

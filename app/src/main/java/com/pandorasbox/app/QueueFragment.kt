@@ -25,10 +25,6 @@ class QueueFragment : Fragment() {
     private lateinit var tvEmpty: TextView
     private lateinit var queueAdapter: QueueAdapter
 
-    // Highest percent shown so far per job id, so the UI never moves backwards.
-    private val maxPercent = mutableMapOf<String, Float>()
-    private val lastStatus = mutableMapOf<String, String>()
-
     // ---- Queue animation state ----------------------------------------------------------
 
     private class QueueState(
@@ -102,19 +98,16 @@ class QueueFragment : Fragment() {
 
     }
 
-    /**
-     * The downloader reports progress per stream (video, then audio, then conversion), so the raw
-     * value can drop. Clamp it to the highest value seen for this job. The only reset is when the
-     * job enters the "converting" phase, which is a separate step that legitimately starts at 0.
-     */
-    private fun monotonic(job: DownloadJob): DownloadJob {
-        val enteredConverting = job.status == "converting" && lastStatus[job.id] != "converting"
-        lastStatus[job.id] = job.status
-        val previous = if (enteredConverting) 0f else (maxPercent[job.id] ?: 0f)
-        val shown = maxOf(previous, job.percent).coerceIn(0f, 100f)
-        maxPercent[job.id] = shown
-        return if (shown == job.percent) job else job.copy(percent = shown)
-    }
+    // NOTE: this used to also keep its own "highest percent seen per stage" clamp here, as a
+    // second, independent copy of the guard that now lives solely in DownloadManager (see the
+    // comment on DownloadManager.stageProgressGuard). Two un-synchronized copies of the same
+    // "never go backwards" logic is what actually produced the "stuck at 99%" bug: DownloadManager
+    // correctly allows the percent to drop when yt-dlp revises a stage's total byte count, but
+    // this Fragment's own copy had no idea the total had changed, so it kept re-clamping the
+    // now-correct, lower value back up to the stale high-water mark it remembered locally -- a
+    // clamp that only ever got cleared by tearing down and recreating the Fragment (closing and
+    // reopening the app), which is exactly the workaround that used to "fix" it. DownloadManager
+    // is the single source of truth for this now, so the UI just displays job.percent as given.
 
     private fun observeQueue() {
         viewLifecycleOwner.lifecycleScope.launch {
@@ -150,7 +143,7 @@ class QueueFragment : Fragment() {
     private fun render() {
         val state = latestState ?: return
 
-        val live = (state.active + state.queued).map { monotonic(it) }
+        val live = state.active + state.queued
         val liveIds = live.map { it.id }.toSet()
 
         // 1) Jobs that were on screen and are no longer live. A job that was still "queued" can
@@ -192,10 +185,6 @@ class QueueFragment : Fragment() {
                 if (exit.leaving && !exit.animating) startFinishAnimation(id)
             }
         }
-
-        val liveShownIds = display.map { it.id }.toSet()
-        maxPercent.keys.retainAll(liveShownIds)
-        lastStatus.keys.retainAll(liveShownIds)
     }
 
     // ---- Finish animation ---------------------------------------------------------------
