@@ -6,6 +6,7 @@ import shutil
 import importlib
 import io
 import subprocess
+import tempfile
 from types import SimpleNamespace
 from urllib.parse import urlparse
 import yt_dlp
@@ -13,15 +14,40 @@ import yt_dlp
 DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 MOBILE_USER_AGENT = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
 
+# --- Logging helper ----------------------------------------------------
+_DIAG_TAG = "PandorasBox/YtdlpHelper"
+try:
+    from android.util import Log as _ALog
 
-def enable_android_pornhub_curl():
+    def _diag(message):
+        try:
+            _ALog.d(_DIAG_TAG, str(message))
+        except Exception:
+            print(f"{_DIAG_TAG}: {message}")
+except Exception:
+    def _diag(message):
+        print(f"{_DIAG_TAG}: {message}")
+# -------------------------------------------------------------------------
+
+# Hosts that require the Android-specific yt-dlp compatibility patches below.
+# Only Pornhub needs this today; other extractors (XHamster, XVideos, ...)
+# work through stock yt-dlp and should not be routed through these patches.
+ANDROID_SPECIAL_HOSTS = {"pornhub.com", "www.pornhub.com"}
+
+
+def _enable_android_pornhub_curl_workaround():
     """Use Android's system curl for a page Python's TLS client is refused for."""
     curl_path = "/system/bin/curl"
-    if not os.path.isfile(curl_path):
+    curl_exists = os.path.isfile(curl_path)
+    curl_executable = curl_exists and os.access(curl_path, os.X_OK)
+    _diag(f"_enable_android_pornhub_curl_workaround: curl_exists={curl_exists} curl_executable={curl_executable}")
+    if not curl_exists:
+        _diag("_enable_android_pornhub_curl_workaround: aborting patch install, /system/bin/curl not found")
         return
 
     from yt_dlp.extractor.pornhub import PornHubBaseIE
     if getattr(PornHubBaseIE, "_android_curl_page_enabled", False):
+        _diag("_enable_android_pornhub_curl_workaround: patch already installed, skipping re-install")
         return
 
     original = PornHubBaseIE._download_webpage_handle
@@ -43,37 +69,191 @@ def enable_android_pornhub_curl():
     def download_page(self, url_or_request, *args, **kwargs):
         page_url = getattr(url_or_request, "url", url_or_request)
         parsed = urlparse(page_url) if isinstance(page_url, str) else None
-        is_video_page = parsed and parsed.hostname in ("pornhub.com", "www.pornhub.com") and parsed.path == "/view_video.php"
+        is_video_page = parsed and parsed.hostname in ANDROID_SPECIAL_HOSTS and parsed.path == "/view_video.php"
+        _diag(f"download_page: host={getattr(parsed, 'hostname', None)} path={getattr(parsed, 'path', None)} is_video_page={bool(is_video_page)}")
         if is_video_page:
             try:
                 webpage = curl_fetch(page_url, True).decode("utf-8", errors="replace")
                 if "flashvars_" in webpage:
+                    _diag("download_page: curl_fetch succeeded and page looked valid (flashvars_ present)")
                     return webpage, SimpleNamespace(url=page_url)
-            except (OSError, subprocess.SubprocessError):
-                pass
+                _diag("download_page: curl_fetch returned a page WITHOUT flashvars_, falling back to original handler")
+            except (OSError, subprocess.SubprocessError) as e:
+                _diag(f"download_page: curl_fetch raised {type(e).__name__}: {e}, falling back to original handler")
         return original(self, url_or_request, *args, **kwargs)
 
     def request_playlist(self, url_or_request, *args, **kwargs):
         page_url = getattr(url_or_request, "url", url_or_request)
         parsed = urlparse(page_url) if isinstance(page_url, str) else None
-        if parsed and (parsed.hostname or "").endswith(".phncdn.com") and parsed.path.endswith(".m3u8"):
+        is_m3u8_request = bool(parsed and (parsed.hostname or "").endswith(".phncdn.com") and parsed.path.endswith(".m3u8"))
+        if is_m3u8_request:
+            _diag(f"request_playlist: m3u8 request detected host={parsed.hostname} path={parsed.path}")
             try:
                 content = curl_fetch(page_url, False)
                 if content.startswith(b"#EXTM3U"):
+                    _diag("request_playlist: curl_fetch returned a valid #EXTM3U playlist")
                     response = io.BytesIO(content)
                     response.url = page_url
                     response.headers = {"Content-Type": "application/vnd.apple.mpegurl"}
                     return response
-            except (OSError, subprocess.SubprocessError):
-                pass
+                _diag("request_playlist: curl_fetch returned content that is NOT #EXTM3U, falling back to original request path")
+            except (OSError, subprocess.SubprocessError) as e:
+                _diag(f"request_playlist: curl_fetch raised {type(e).__name__}: {e}, falling back to original request path")
         return original_request(self, url_or_request, *args, **kwargs)
 
     PornHubBaseIE._download_webpage_handle = download_page
     PornHubBaseIE._request_webpage = request_playlist
     PornHubBaseIE._android_curl_page_enabled = True
+    _diag("_enable_android_pornhub_curl_workaround: patch installed on PornHubBaseIE")
 
 
-enable_android_pornhub_curl()
+def _enable_android_pornhub_urllib_workaround():
+    """Use Android Python urllib for Pornhub webpage requests.
+
+    The bundled yt-dlp Pornhub extractor currently receives HTTP 410 through
+    its normal request path, while urllib can fetch the same page
+    successfully with HTTP 200.
+    """
+    try:
+        from yt_dlp.extractor.pornhub import PornHubBaseIE
+        import urllib.request
+        import urllib.error
+
+        original_download_webpage_handle = PornHubBaseIE._download_webpage_handle
+
+        if getattr(PornHubBaseIE, "_pandoras_box_urllib_patch", False):
+            _diag("_enable_android_pornhub_urllib_workaround: already patched")
+            return
+
+        def android_download_webpage_handle(
+            self,
+            url,
+            video_id,
+            note="Downloading webpage",
+            errnote="Unable to download webpage",
+            fatal=True,
+            encoding=None,
+            data=None,
+            headers=None,
+            query=None,
+            expected_status=None,
+            impersonate=None,
+            require_title=False,
+            **kwargs
+        ):
+            host = (urlparse(url).hostname or "").lower()
+            if host not in ANDROID_SPECIAL_HOSTS:
+                return original_download_webpage_handle(
+                    self,
+                    url,
+                    video_id,
+                    note=note,
+                    errnote=errnote,
+                    fatal=fatal,
+                    encoding=encoding,
+                    data=data,
+                    headers=headers,
+                    query=query,
+                    expected_status=expected_status,
+                    impersonate=impersonate,
+                    require_title=require_title,
+                    **kwargs
+                )
+
+            request_headers = {
+                "User-Agent": DEFAULT_USER_AGENT,
+                "Accept": (
+                    "text/html,application/xhtml+xml,application/xml;"
+                    "q=0.9,image/avif,image/webp,*/*;q=0.8"
+                ),
+                "Accept-Language": "en-US,en;q=0.9",
+                "Referer": "https://www.pornhub.com/",
+                "Upgrade-Insecure-Requests": "1",
+            }
+            if headers:
+                request_headers.update(headers)
+
+            request = urllib.request.Request(
+                url,
+                data=data,
+                headers=request_headers,
+                method="POST" if data else "GET",
+            )
+
+            _diag(
+                f"pornhub_urllib: fetching host={host} "
+                f"path={urlparse(url).path} "
+                f"impersonate={impersonate}"
+            )
+
+            try:
+                response = urllib.request.urlopen(request, timeout=20)
+                webpage_bytes = response.read()
+                if urlparse(url).path == "/video/get_media":
+                    _diag(
+                        f"pornhub_urllib: get_media_body="
+                        f"{webpage_bytes[:500]!r}"
+                    )
+                try:
+                    webpage = webpage_bytes.decode(
+                        encoding or "utf-8", errors="replace",
+                    )
+                except LookupError:
+                    webpage = webpage_bytes.decode(
+                        "utf-8", errors="replace",
+                    )
+                _diag(
+                    f"pornhub_urllib: SUCCESS status="
+                    f"{getattr(response, 'status', None)} "
+                    f"final_url={response.geturl()} "
+                    f"bytes={len(webpage_bytes)}"
+                )
+                return webpage, response
+            except urllib.error.HTTPError as e:
+                _diag(
+                    f"pornhub_urllib: HTTPError status={e.code} "
+                    f"reason={e.reason} final_url={e.geturl()}"
+                )
+                if fatal:
+                    raise
+                return False, e
+            except Exception as e:
+                _diag(
+                    f"pornhub_urllib: EXCEPTION "
+                    f"type={type(e).__name__} error={e}"
+                )
+                if fatal:
+                    raise
+                return False, None
+
+        PornHubBaseIE._download_webpage_handle = android_download_webpage_handle
+        PornHubBaseIE._pandoras_box_urllib_patch = True
+        _diag(
+            "_enable_android_pornhub_urllib_workaround: "
+            "PornHubBaseIE._download_webpage_handle patched"
+        )
+    except Exception as e:
+        _diag(
+            f"_enable_android_pornhub_urllib_workaround: "
+            f"SETUP_EXCEPTION type={type(e).__name__} error={e}"
+        )
+
+
+def enable_android_extractor_compatibility():
+    """Install only the compatibility patches actually required by specific
+    extractors on Android.
+
+    Today that's Pornhub: yt-dlp's normal HTTP request path returns HTTP 410
+    for Pornhub's webpage on Android, while curl / urllib fetch it
+    successfully. XHamster and XVideos need no patching and are intentionally
+    left on stock yt-dlp behavior.
+    """
+    _enable_android_pornhub_curl_workaround()
+    _enable_android_pornhub_urllib_workaround()
+
+
+enable_android_extractor_compatibility()
+
 
 def unshorten_url(url):
     if not url:
@@ -308,6 +488,32 @@ def sanitize_filename(name):
     name = name.strip().rstrip(".")
     return name[:180] if name else "video"
 
+
+def _create_pornhub_cookiefile():
+    """Create a temporary Netscape cookie file for Pornhub's age/access cookies."""
+    cookie_file = os.path.join(
+        tempfile.gettempdir(),
+        "pandoras_box_pornhub_cookies.txt",
+    )
+
+    cookie_data = """# Netscape HTTP Cookie File
+.pornhub.com	TRUE	/	FALSE	0	age_verified	1
+.pornhub.com	TRUE	/	FALSE	0	accessAgeDisclaimerPH	1
+.pornhub.com	TRUE	/	FALSE	0	accessAgeDisclaimerUK	1
+.pornhub.com	TRUE	/	FALSE	0	accessPH	1
+.pornhub.com	TRUE	/	FALSE	0	platform	pc
+"""
+
+    try:
+        with open(cookie_file, "w", encoding="utf-8") as f:
+            f.write(cookie_data)
+        _diag(f"_create_pornhub_cookiefile: created {cookie_file}")
+        return cookie_file
+    except OSError as e:
+        _diag(f"_create_pornhub_cookiefile: failed: {type(e).__name__}: {e}")
+        return None
+
+
 def get_base_opts(url, referer=None, user_agent=None, ffmpeg_path=None, use_mobile_ua=False):
     url_lower = url.lower() if url else ""
 
@@ -337,8 +543,15 @@ def get_base_opts(url, referer=None, user_agent=None, ffmpeg_path=None, use_mobi
     if headers:
         opts['http_headers'] = headers
 
-    if os.path.isfile("/system/bin/curl") and (urlparse(url).hostname or "").lower() in ("pornhub.com", "www.pornhub.com"):
+    if (urlparse(url).hostname or "").lower() in ANDROID_SPECIAL_HOSTS:
+        cookie_file = _create_pornhub_cookiefile()
+        if cookie_file:
+            opts['cookiefile'] = cookie_file
+            _diag("get_base_opts: Pornhub cookiefile configured")
+
+    if os.path.isfile("/system/bin/curl") and (urlparse(url).hostname or "").lower() in ANDROID_SPECIAL_HOSTS:
         opts['external_downloader'] = {'http': '/system/bin/curl', 'https': '/system/bin/curl'}
+        _diag("get_base_opts: external_downloader (curl) configured for pornhub.com media requests")
 
     if ffmpeg_path and os.path.exists(ffmpeg_path):
         opts['ffmpeg_location'] = ffmpeg_path
@@ -481,6 +694,9 @@ def extract_info(url, referer=None, user_agent=None, ffmpeg_path=None):
 
     url = unshorten_url(url.strip())
 
+    _parsed_for_diag = urlparse(url)
+    _diag(f"extract_info: entry host={_parsed_for_diag.hostname} path={_parsed_for_diag.path}")
+
     opts = get_base_opts(url, referer, user_agent, ffmpeg_path, use_mobile_ua=False)
     opts['extract_flat'] = 'in_playlist'
     opts['skip_download'] = True
@@ -491,8 +707,10 @@ def extract_info(url, referer=None, user_agent=None, ffmpeg_path=None):
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
+        _diag(f"extract_info: desktop-UA attempt succeeded, extractor={info.get('extractor_key') if info else None}")
     except Exception as e:
         last_err = str(e)
+        _diag(f"extract_info: desktop-UA attempt raised {type(e).__name__}: {last_err}")
 
     if not info:
         try:
@@ -501,8 +719,10 @@ def extract_info(url, referer=None, user_agent=None, ffmpeg_path=None):
             m_opts['skip_download'] = True
             with yt_dlp.YoutubeDL(m_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
+            _diag(f"extract_info: mobile-UA retry succeeded, extractor={info.get('extractor_key') if info else None}")
         except Exception as e:
             last_err = str(e)
+            _diag(f"extract_info: mobile-UA retry raised {type(e).__name__}: {last_err}")
 
     # Native TikTok fallback if yt-dlp returns error / status code 0
     if not info and 'tiktok.com' in url.lower():
@@ -511,6 +731,7 @@ def extract_info(url, referer=None, user_agent=None, ffmpeg_path=None):
             return json.dumps(native_info)
 
     if not info:
+        _diag(f"extract_info: giving up, both attempts failed, last_err={last_err}")
         return json.dumps({"error": describe_error(last_err)})
 
     is_playlist = info.get('_type') == 'playlist' or 'entries' in info

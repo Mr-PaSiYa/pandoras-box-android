@@ -27,10 +27,10 @@ android {
         }
         python {
             version "3.14"
-            buildPython "F:/Python314/python.exe"
+            buildPython "python"
             pip {
-                install "yt-dlp"
-                install "mutagen"
+                install "yt-dlp==2026.08.19"
+                install "mutagen==1.48.1"
             }
         }
     }

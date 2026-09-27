@@ -2,6 +2,7 @@ package com.pandorasbox.app
 
 import android.content.Context
 import java.io.File
+import android.util.Log
 
 object FFmpegHelper {
 
@@ -12,6 +13,7 @@ object FFmpegHelper {
             try {
                 ffmpegSo.setExecutable(true, false)
             } catch (_: Exception) {}
+            Log.d("PandorasBox/FFmpegDiag", "FFmpeg executable: ${ffmpegSo.absolutePath}")
             return ffmpegSo.absolutePath
         }
 
