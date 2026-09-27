@@ -67,7 +67,7 @@ class QueueFragment : Fragment() {
         lastShown = emptyList()
         latestState = null
 
-        queueAdapter = QueueAdapter { jobId ->
+        queueAdapter = QueueAdapter(viewLifecycleOwner.lifecycleScope) { jobId ->
             DownloadManager.cancelJob(jobId)
         }
 

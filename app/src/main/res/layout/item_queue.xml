@@ -19,7 +19,19 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/iv_queue_thumb"
+                android:layout_width="112dp"
+                android:layout_height="64dp"
+                android:layout_marginEnd="12dp"
+                android:background="?attr/appCard"
+                android:contentDescription="@null"
+                android:scaleType="centerCrop"
+                android:visibility="gone"
+                app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.App.Corner10" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -44,19 +56,19 @@
                     android:layout_marginTop="3dp"
                     android:textColor="?attr/appTextSecondary"
                     android:textSize="12sp" />
-            </LinearLayout>
 
-            <TextView
-                android:id="@+id/tv_status_pill"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:background="@drawable/bg_bottom_nav"
-                android:paddingHorizontal="10dp"
-                android:paddingVertical="4dp"
-                android:textColor="?attr/appAccent"
-                android:textSize="10sp"
-                android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tv_status_pill"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/bg_bottom_nav"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="2dp"
+                    android:textColor="?attr/appAccent"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
 
         <ProgressBar

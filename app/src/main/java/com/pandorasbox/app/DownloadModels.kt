@@ -4,6 +4,7 @@ data class DownloadJob(
     val id: String,
     val url: String,
     var title: String = "",
+    val thumbnailUrl: String = "",
     val format: String = "mp4",
     val quality: String = "best",
     val duplicatePolicy: String = "rename",

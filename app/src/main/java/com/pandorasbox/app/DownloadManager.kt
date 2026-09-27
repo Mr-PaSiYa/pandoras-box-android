@@ -298,6 +298,7 @@ object DownloadManager {
     fun enqueueDownload(
         url: String,
         title: String = "",
+        thumbnailUrl: String = "",
         format: String,
         quality: String,
         duplicatePolicy: String,
@@ -311,6 +312,7 @@ object DownloadManager {
             id = UUID.randomUUID().toString().take(12),
             url = url,
             title = title,
+            thumbnailUrl = thumbnailUrl,
             format = format,
             quality = quality,
             duplicatePolicy = duplicatePolicy,
@@ -392,8 +394,9 @@ object DownloadManager {
             list.add(
                 DownloadJob(
                     id = UUID.randomUUID().toString().take(12),
-                    url = entry.url,
-                    title = entry.title,
+                        url = entry.url,
+                        title = entry.title,
+                        thumbnailUrl = entry.thumbnail,
                     format = format,
                     quality = quality,
                     duplicatePolicy = duplicatePolicy,
@@ -489,6 +492,7 @@ object DownloadManager {
         enqueueDownload(
             url = job.url,
             title = job.title,
+            thumbnailUrl = job.thumbnailUrl,
             format = job.format,
             quality = job.quality,
             duplicatePolicy = job.duplicatePolicy,
@@ -501,6 +505,7 @@ object DownloadManager {
     }
 
     fun clearHistory() {
+        _historyJobs.value.forEach { ThumbnailStore.delete(appContext, it.id) }
         _historyJobs.value = emptyList()
         saveHistory()
     }
@@ -509,6 +514,7 @@ object DownloadManager {
         val remaining = _historyJobs.value.filterNot { it.id == jobId }
         if (remaining.size == _historyJobs.value.size) return
         _historyJobs.value = remaining
+        ThumbnailStore.delete(appContext, jobId)
         saveHistory()
     }
 
@@ -1061,7 +1067,7 @@ object DownloadManager {
         val currentHistory = _historyJobs.value.toMutableList()
         currentHistory.add(0, job.copy())
         if (currentHistory.size > 300) {
-            currentHistory.removeAt(currentHistory.size - 1)
+            ThumbnailStore.delete(appContext, currentHistory.removeAt(currentHistory.size - 1).id)
         }
         _historyJobs.value = currentHistory
         saveHistory()
@@ -1075,6 +1081,7 @@ object DownloadManager {
                 obj.put("id", j.id)
                 obj.put("url", j.url)
                 obj.put("title", j.title)
+                obj.put("thumbnailUrl", j.thumbnailUrl)
                 obj.put("format", j.format)
                 obj.put("quality", j.quality)
                 obj.put("duplicatePolicy", j.duplicatePolicy)
@@ -1106,6 +1113,7 @@ object DownloadManager {
                         id = obj.optString("id", ""),
                         url = obj.optString("url", ""),
                         title = obj.optString("title", ""),
+                        thumbnailUrl = obj.optString("thumbnailUrl", ""),
                         format = obj.optString("format", "mp4"),
                         quality = obj.optString("quality", "best"),
                         duplicatePolicy = obj.optString("duplicatePolicy", "rename"),

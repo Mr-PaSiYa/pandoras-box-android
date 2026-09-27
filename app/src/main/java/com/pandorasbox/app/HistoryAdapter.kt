@@ -15,6 +15,7 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +45,9 @@ class HistoryAdapter(
     // video frame. Keyed by file path; cleared automatically when the fragment/adapter
     // is garbage collected (process-lifetime only, nothing persisted to disk).
     private val thumbnailCache = LruCache<String, Bitmap>(40)
+    private val loadingThumbnails = mutableSetOf<String>()
+    private val resolutionCache = LruCache<String, String>(80)
+    private val loadingResolutions = mutableSetOf<String>()
 
     private val AUDIO_ONLY_FORMATS = setOf("mp3", "m4a", "aac", "wav", "opus", "flac", "ogg")
     private fun isAudioOnly(format: String) = format.trim().lowercase(Locale.US) in AUDIO_ONLY_FORMATS
@@ -116,7 +120,7 @@ class HistoryAdapter(
         val missingTag = if (hasPath && !fileExists) " · File missing" else ""
         holder.tvSub.text = "$fmtStr · ${item.createdAt}$sizeTag$playlistTag$errTag$missingTag"
 
-        val optionsStr = formatOptions(item)
+        val optionsStr = formatOptions(item, fileExists)
         holder.tvOptions.text = optionsStr
         holder.tvOptions.isVisible = !compact && optionsStr.isNotBlank()
 
@@ -171,25 +175,36 @@ class HistoryAdapter(
 
     private fun loadThumbnail(holder: ViewHolder, item: DownloadJob) {
         holder.ivThumb.setImageDrawable(null)
-
-        val path = item.filePath
-        if (path.isBlank() || isAudioOnly(item.format)) return
-
-        thumbnailCache.get(path)?.let {
-            holder.ivThumb.setImageBitmap(it)
+        val stored = ThumbnailStore.file(holder.itemView.context, item.id)
+        if (stored.isFile && stored.length() > 0) {
+            holder.ivThumb.load(stored)
             return
         }
-
+        val path = item.filePath
+        if (path.isNotBlank()) {
+            thumbnailCache.get(path)?.let {
+                holder.ivThumb.setImageBitmap(it)
+                return
+            }
+        }
+        if (!loadingThumbnails.add(item.id)) return
         lifecycleScope.launch {
-            val bitmap = withContext(Dispatchers.IO) { extractVideoFrame(path) }
-            if (bitmap != null) {
-                thumbnailCache.put(path, bitmap)
-                // Guard against the view having been recycled for a different row
-                // while the frame was being decoded on the IO thread.
-                val currentPos = holder.adapterPosition
-                if (currentPos != RecyclerView.NO_POSITION && getItem(currentPos).filePath == path) {
-                    holder.ivThumb.setImageBitmap(bitmap)
+            try {
+                val artwork = ThumbnailStore.ensure(holder.itemView.context.applicationContext, item)
+                var available = artwork != null
+                if (!available && path.isNotBlank() && !isAudioOnly(item.format)) {
+                    val bitmap = withContext(Dispatchers.IO) { extractVideoFrame(path) }
+                    if (bitmap != null) {
+                        thumbnailCache.put(path, bitmap)
+                        available = true
+                    }
                 }
+                if (available) {
+                    val currentPos = currentList.indexOfFirst { it.id == item.id }
+                    if (currentPos >= 0) notifyItemChanged(currentPos)
+                }
+            } finally {
+                loadingThumbnails.remove(item.id)
             }
         }
     }
@@ -230,15 +245,57 @@ class HistoryAdapter(
         return if (unitIndex == 0) "$bytes B" else String.format(Locale.US, "%.1f %s", value, units[unitIndex])
     }
 
-    /** Summarizes the download options the user picked for this job, e.g. "1080P · MP4 · Subtitles". */
-    private fun formatOptions(item: DownloadJob): String {
+    /** Show the saved video's resolution, not yt-dlp's internal format selector. */
+    private fun formatOptions(item: DownloadJob, fileExists: Boolean): String {
         val parts = mutableListOf<String>()
-        if (item.quality.isNotBlank()) parts.add(item.quality.uppercase(Locale.US))
+        videoResolution(item, fileExists)?.let(parts::add)
         if (item.format.isNotBlank()) parts.add(item.format.uppercase(Locale.US))
         if (!item.audioFormatId.isNullOrBlank()) parts.add("Audio: ${item.audioFormatId}")
         if (item.subtitles) parts.add("Subtitles")
         if (item.embedMeta) parts.add("Metadata")
         return parts.joinToString(" · ")
+    }
+
+    private fun videoResolution(item: DownloadJob, fileExists: Boolean): String? {
+        if (isAudioOnly(item.format)) return null
+        val path = item.filePath
+        if (fileExists) {
+            resolutionCache.get(path)?.takeIf { it.isNotBlank() }?.let { return it }
+            if (resolutionCache.get(path) == null && loadingResolutions.add(path)) {
+                lifecycleScope.launch {
+                    try {
+                        val actual = withContext(Dispatchers.IO) { readVideoResolution(path) }
+                        resolutionCache.put(path, actual.orEmpty())
+                        val position = currentList.indexOfFirst { it.filePath == path }
+                        if (position >= 0) notifyItemChanged(position)
+                    } finally {
+                        loadingResolutions.remove(path)
+                    }
+                }
+            }
+        }
+        val height = when {
+            item.quality.startsWith("h:") -> item.quality.substringAfter("h:").toIntOrNull()
+            item.quality.startsWith("id:") -> item.quality.substringAfterLast(':').toIntOrNull()
+            else -> Regex("^(\\d{3,4})p$", RegexOption.IGNORE_CASE)
+                .matchEntire(item.quality)?.groupValues?.get(1)?.toIntOrNull()
+        }
+        return height?.takeIf { it in 144..8640 }?.let { "${it}p" }
+    }
+
+    private fun readVideoResolution(path: String): String? {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(path)
+            val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull()
+            val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull()
+            if (width == null || height == null) null
+            else minOf(width, height).takeIf { it in 144..8640 }?.let { "${it}p" }
+        } catch (_: Exception) {
+            null
+        } finally {
+            try { retriever.release() } catch (_: Exception) {}
+        }
     }
 
     object DiffCallback : DiffUtil.ItemCallback<DownloadJob>() {

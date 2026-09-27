@@ -379,6 +379,7 @@ class DownloadFragment : Fragment() {
                 DownloadManager.enqueueDownload(
                     url = lines[0],
                     title = previewTitle,
+                    thumbnailUrl = currentPreviewResult?.videoInfo?.thumbnail.orEmpty(),
                     format = format,
                     quality = quality,
                     duplicatePolicy = duplicatePolicy,

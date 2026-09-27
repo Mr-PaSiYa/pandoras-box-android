@@ -753,6 +753,10 @@ def extract_info(url, referer=None, user_agent=None, ffmpeg_path=None):
             entries.append({
                 "title": entry.get('title') or entry.get('id') or "Untitled",
                 "url": entry_url,
+                "thumbnail": entry.get('thumbnail') or (
+                    f"https://i.ytimg.com/vi/{entry.get('id')}/hqdefault.jpg"
+                    if is_youtube_playlist and entry.get('id') else ""
+                ),
             })
 
         return json.dumps({

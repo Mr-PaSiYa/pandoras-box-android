@@ -4,18 +4,27 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ProgressBar
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import androidx.core.view.isVisible
 import com.google.android.material.button.MaterialButton
+import coil.load
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 class QueueAdapter(
+    private val lifecycleScope: CoroutineScope,
     private val onCancelClick: (String) -> Unit
 ) : ListAdapter<DownloadJob, QueueAdapter.ViewHolder>(DiffCallback) {
 
+    private val loadingThumbnails = mutableSetOf<String>()
+
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvTitle: TextView = view.findViewById(R.id.tv_title)
+        val ivThumb: ImageView = view.findViewById(R.id.iv_queue_thumb)
         val tvSub: TextView = view.findViewById(R.id.tv_sub)
         val tvStatusPill: TextView = view.findViewById(R.id.tv_status_pill)
         val progressBar: ProgressBar = view.findViewById(R.id.progress_bar)
@@ -41,6 +50,25 @@ class QueueAdapter(
         if (holder.boundJobId != item.id) resetRowTransform(holder.itemView)
 
         holder.tvTitle.text = item.title.ifBlank { item.url }
+        holder.ivThumb.setImageDrawable(null)
+        val storedThumbnail = ThumbnailStore.file(holder.itemView.context, item.id)
+        val hasThumbnail = storedThumbnail.isFile && storedThumbnail.length() > 0
+        holder.ivThumb.isVisible = hasThumbnail
+        if (hasThumbnail) {
+            holder.ivThumb.load(storedThumbnail)
+        } else if (loadingThumbnails.add(item.id)) {
+            lifecycleScope.launch {
+                try {
+                    val artwork = ThumbnailStore.ensure(holder.itemView.context.applicationContext, item)
+                    if (artwork != null) {
+                        val currentPos = currentList.indexOfFirst { it.id == item.id }
+                        if (currentPos >= 0) notifyItemChanged(currentPos)
+                    }
+                } finally {
+                    loadingThumbnails.remove(item.id)
+                }
+            }
+        }
 
         val fmtStr = item.format.uppercase()
         val playlistTag = if (!item.playlistTitle.isNullOrBlank()) " · ${item.playlistTitle}" else ""
@@ -95,6 +123,8 @@ class QueueAdapter(
         holder.itemView.animate().cancel()
         resetRowTransform(holder.itemView)
         holder.boundJobId = null
+        holder.ivThumb.setImageDrawable(null)
+        holder.ivThumb.isVisible = false
     }
 
     private fun resetRowTransform(view: View) {

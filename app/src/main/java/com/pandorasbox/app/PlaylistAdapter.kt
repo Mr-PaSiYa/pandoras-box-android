@@ -10,6 +10,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
 import java.util.Locale
 import kotlin.math.abs
 
@@ -31,6 +32,7 @@ class PlaylistAdapter(
         val cbInclude: CheckBox = view.findViewById(R.id.cb_include)
         val tvIndex: TextView = view.findViewById(R.id.tv_index)
         val tvTitle: TextView = view.findViewById(R.id.tv_item_title)
+        val ivThumbnail: ImageView = view.findViewById(R.id.iv_playlist_thumb)
         val ivDragHandle: ImageView = view.findViewById(R.id.iv_drag_handle)
     }
 
@@ -79,6 +81,13 @@ class PlaylistAdapter(
         val item = entries[position]
         holder.cbInclude.isChecked = item.included
         holder.tvTitle.text = item.title
+        if (item.thumbnail.isNotBlank()) {
+            holder.ivThumbnail.visibility = View.VISIBLE
+            holder.ivThumbnail.load(item.thumbnail)
+        } else {
+            holder.ivThumbnail.setImageDrawable(null)
+            holder.ivThumbnail.visibility = View.GONE
+        }
         bindNumber(holder, position)
     }
 

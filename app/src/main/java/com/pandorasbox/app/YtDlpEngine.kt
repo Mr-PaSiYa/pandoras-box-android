@@ -16,6 +16,7 @@ data class FormatOption(
 data class PlaylistEntry(
     val title: String,
     val url: String,
+    val thumbnail: String = "",
     var included: Boolean = true
 )
 
@@ -144,7 +145,8 @@ object YtDlpEngine {
                         entriesList.add(
                             PlaylistEntry(
                                 title = item.optString("title", "Untitled"),
-                                url = item.optString("url", "")
+                                url = item.optString("url", ""),
+                                thumbnail = item.optString("thumbnail", "")
                             )
                         )
                     }
