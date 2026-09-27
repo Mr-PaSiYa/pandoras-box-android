@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
@@ -13,6 +14,9 @@ import android.view.View
 import android.view.animation.LinearInterpolator
 import androidx.fragment.app.FragmentActivity
 import com.airbnb.lottie.LottieAnimationView
+import com.airbnb.lottie.LottieProperty
+import com.airbnb.lottie.model.KeyPath
+import com.airbnb.lottie.value.LottieValueCallback
 
 class SplashActivity : FragmentActivity() {
     private val handler = Handler(Looper.getMainLooper())
@@ -32,11 +36,23 @@ class SplashActivity : FragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val appearanceMode = Appearance.mode(this)
+        setTheme(when (appearanceMode) {
+            1 -> R.style.Theme_PandorasBox_Splash_Light
+            2 -> R.style.Theme_PandorasBox_Splash_Amoled
+            else -> R.style.Theme_PandorasBox_Splash
+        })
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
         PythonRuntime.prepare(applicationContext)
 
         logo = findViewById(R.id.splash_logo)
+        if (appearanceMode == 1) {
+            logo.addValueCallback(
+                KeyPath("**"), LottieProperty.COLOR,
+                LottieValueCallback(Color.BLACK)
+            )
+        }
         progressLine = findViewById(R.id.splash_progress)
         progressLine.pivotX = 0f
         progressLine.scaleX = 0f

@@ -50,8 +50,8 @@
             android:focusable="true"
             android:gravity="center"
             android:orientation="vertical">
-            <View android:id="@+id/nav_indicator_home" android:layout_width="24dp" android:layout_height="2dp" android:layout_marginBottom="7dp" android:background="@color/accent_blue" />
-            <ImageView android:id="@+id/nav_icon_home" android:layout_width="22dp" android:layout_height="22dp" android:contentDescription="Home" android:src="@drawable/ic_nav_download" />
+            <View android:id="@+id/nav_indicator_home" android:layout_width="24dp" android:layout_height="2dp" android:layout_marginBottom="7dp" android:background="?attr/appAccent" />
+            <com.airbnb.lottie.LottieAnimationView android:id="@+id/nav_icon_home" android:layout_width="28dp" android:layout_height="28dp" android:contentDescription="@null" app:lottie_rawRes="@raw/nav_home" app:lottie_autoPlay="false" app:lottie_loop="false" />
             <TextView android:id="@+id/nav_label_home" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Home" android:textSize="12sp" />
         </LinearLayout>
 
@@ -65,8 +65,8 @@
             android:focusable="true"
             android:gravity="center"
             android:orientation="vertical">
-            <View android:id="@+id/nav_indicator_queue" android:layout_width="24dp" android:layout_height="2dp" android:layout_marginBottom="7dp" android:background="@color/accent_blue" />
-            <ImageView android:id="@+id/nav_icon_queue" android:layout_width="22dp" android:layout_height="22dp" android:contentDescription="Queue" android:src="@drawable/ic_nav_queue" />
+            <View android:id="@+id/nav_indicator_queue" android:layout_width="24dp" android:layout_height="2dp" android:layout_marginBottom="7dp" android:background="?attr/appAccent" />
+            <com.airbnb.lottie.LottieAnimationView android:id="@+id/nav_icon_queue" android:layout_width="28dp" android:layout_height="28dp" android:contentDescription="@null" app:lottie_rawRes="@raw/nav_queue" app:lottie_autoPlay="false" app:lottie_loop="false" />
             <TextView android:id="@+id/nav_label_queue" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Queue" android:textSize="12sp" />
         </LinearLayout>
 
@@ -80,8 +80,8 @@
             android:focusable="true"
             android:gravity="center"
             android:orientation="vertical">
-            <View android:id="@+id/nav_indicator_library" android:layout_width="24dp" android:layout_height="2dp" android:layout_marginBottom="7dp" android:background="@color/accent_blue" />
-            <ImageView android:id="@+id/nav_icon_library" android:layout_width="22dp" android:layout_height="22dp" android:contentDescription="Library" android:src="@drawable/ic_nav_history" />
+            <View android:id="@+id/nav_indicator_library" android:layout_width="24dp" android:layout_height="2dp" android:layout_marginBottom="7dp" android:background="?attr/appAccent" />
+            <com.airbnb.lottie.LottieAnimationView android:id="@+id/nav_icon_library" android:layout_width="28dp" android:layout_height="28dp" android:contentDescription="@null" app:lottie_rawRes="@raw/nav_library" app:lottie_autoPlay="false" app:lottie_loop="false" />
             <TextView android:id="@+id/nav_label_library" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Library" android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>

@@ -30,7 +30,7 @@ class OptionSpinner(context: Context, attrs: AttributeSet?) : AppCompatSpinner(c
 
         sheet.addView(TextView(context).apply {
             text = title
-            setTextColor(ContextCompat.getColor(context, R.color.text_primary))
+            setTextColor(Appearance.color(context, R.attr.appTextPrimary))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
             setPadding(dp(4), dp(4), dp(4), dp(18))
@@ -45,7 +45,7 @@ class OptionSpinner(context: Context, attrs: AttributeSet?) : AppCompatSpinner(c
                 minimumHeight = dp(54)
                 setPadding(dp(16), 0, dp(16), 0)
                 background = if (selected) GradientDrawable().apply {
-                    setColor(ContextCompat.getColor(context, R.color.card_dark))
+                    setColor(Appearance.color(context, R.attr.appCard))
                     cornerRadius = dp(12).toFloat()
                 } else {
                     val value = TypedValue()
@@ -61,13 +61,13 @@ class OptionSpinner(context: Context, attrs: AttributeSet?) : AppCompatSpinner(c
             }
             row.addView(TextView(context).apply {
                 text = options.getItem(index)?.toString().orEmpty()
-                setTextColor(ContextCompat.getColor(context, if (selected) R.color.accent_blue else R.color.text_primary))
+                setTextColor(Appearance.color(context, if (selected) R.attr.appAccent else R.attr.appTextPrimary))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             })
             if (selected) row.addView(TextView(context).apply {
                 text = "✓"
-                setTextColor(ContextCompat.getColor(context, R.color.accent_blue))
+                setTextColor(Appearance.color(context, R.attr.appAccent))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f)
             })
             list.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(54)))

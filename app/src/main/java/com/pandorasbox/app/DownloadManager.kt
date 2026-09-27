@@ -505,6 +505,13 @@ object DownloadManager {
         saveHistory()
     }
 
+    fun removeHistoryItem(jobId: String) {
+        val remaining = _historyJobs.value.filterNot { it.id == jobId }
+        if (remaining.size == _historyJobs.value.size) return
+        _historyJobs.value = remaining
+        saveHistory()
+    }
+
     @Synchronized
     private fun checkAndDispatch() {
         if (_isPaused.value) return

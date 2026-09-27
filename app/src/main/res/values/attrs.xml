@@ -1,0 +1,14 @@
+<resources>
+    <attr name="appBackground" format="color" />
+    <attr name="appSurface" format="color" />
+    <attr name="appCard" format="color" />
+    <attr name="appStroke" format="color" />
+    <attr name="appTextPrimary" format="color" />
+    <attr name="appTextSecondary" format="color" />
+    <attr name="appTextMuted" format="color" />
+    <attr name="appAccent" format="color" />
+    <attr name="appAccentSoft" format="color" />
+    <attr name="appAccentDeep" format="color" />
+    <attr name="appNavSelected" format="color" />
+    <attr name="appNavIdle" format="color" />
+</resources>

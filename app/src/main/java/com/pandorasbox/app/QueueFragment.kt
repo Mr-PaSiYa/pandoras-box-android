@@ -125,11 +125,11 @@ class QueueFragment : Fragment() {
                     if (paused) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause
                 )
 
-                val total = state.active.size + state.queued.size
+                val total = (state.active + state.queued).distinctBy { it.id }.size
                 btnPauseQueue.isVisible = total > 0
                 tvEmpty.isVisible = total == 0
                 tvSummary.text = if (total > 0) {
-                    "${state.active.size} running · ${state.queued.size} waiting"
+                    "${state.active.distinctBy { it.id }.size} running · ${state.queued.count { queued -> state.active.none { it.id == queued.id } }} waiting"
                 } else {
                     "No active downloads."
                 }
@@ -143,8 +143,11 @@ class QueueFragment : Fragment() {
     private fun render() {
         val state = latestState ?: return
 
-        val live = state.active + state.queued
+        // The two StateFlows can emit between the two halves of a pause/resume move.
+        // An active copy takes precedence until the transition has completed.
+        val live = (state.active + state.queued).distinctBy { it.id }
         val liveIds = live.map { it.id }.toSet()
+        liveIds.forEach { exiting.remove(it) }
 
         // 1) Jobs that were on screen and are no longer live. A job that was still "queued" can
         //    only have been cancelled, so it just disappears. Anything that had started might have

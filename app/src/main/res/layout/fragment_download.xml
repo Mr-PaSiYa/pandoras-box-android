@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/appBackground">
+
+<ScrollView
     android:id="@+id/home_scroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background_dark"
     android:clipToPadding="false"
     android:fillViewport="true">
 
@@ -28,7 +32,7 @@
                 android:layout_weight="1"
                 android:letterSpacing="0.16"
                 android:text="PANDORA'S BOX"
-                android:textColor="@color/accent_blue"
+                android:textColor="?attr/appAccent"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -42,7 +46,7 @@
                 android:focusable="true"
                 android:padding="12dp"
                 android:src="@drawable/ic_nav_settings"
-                app:tint="@color/text_secondary" />
+                android:tint="?attr/appAccent" />
         </LinearLayout>
 
         <TextView
@@ -52,7 +56,7 @@
             android:fontFamily="sans-serif-medium"
             android:letterSpacing="-0.035"
             android:text="Save something worth keeping."
-            android:textColor="@color/text_primary"
+            android:textColor="?attr/appTextPrimary"
             android:textSize="32sp" />
 
         <TextView
@@ -61,7 +65,7 @@
             android:layout_marginTop="10dp"
             android:lineSpacingExtra="3dp"
             android:text="Paste a video or playlist link to get started."
-            android:textColor="@color/text_secondary"
+            android:textColor="?attr/appTextSecondary"
             android:textSize="15sp" />
 
         <TextView
@@ -70,7 +74,7 @@
             android:layout_marginTop="28dp"
             android:text="LINK"
             android:letterSpacing="0.12"
-            android:textColor="@color/text_muted"
+            android:textColor="?attr/appTextMuted"
             android:textSize="11sp"
             android:textStyle="bold" />
 
@@ -89,7 +93,7 @@
                 android:layout_height="20dp"
                 android:contentDescription="Link"
                 android:src="@drawable/ic_link"
-                app:tint="@color/text_muted" />
+                android:tint="?attr/appAccent" />
 
             <EditText
                 android:id="@+id/et_url"
@@ -103,8 +107,8 @@
                 android:inputType="textUri"
                 android:maxLines="1"
                 android:singleLine="true"
-                android:textColor="@color/text_primary"
-                android:textColorHint="@color/text_muted"
+                android:textColor="?attr/appTextPrimary"
+                android:textColorHint="?attr/appTextMuted"
                 android:textSize="14sp" />
 
             <com.google.android.material.button.MaterialButton
@@ -115,7 +119,7 @@
                 android:minWidth="56dp"
                 android:text="Paste"
                 android:textAllCaps="false"
-                android:textColor="@color/accent_blue" />
+                android:textColor="?attr/appAccent" />
         </LinearLayout>
 
         <LinearLayout
@@ -131,10 +135,10 @@
 
             <com.airbnb.lottie.LottieAnimationView
                 android:id="@+id/progress_fetch"
-                android:layout_width="76dp"
-                android:layout_height="76dp"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
                 android:contentDescription="Scanning video link"
-                app:lottie_rawRes="@raw/fetch_video"
+                app:lottie_fileName="loading.lottie"
                 app:lottie_loop="true" />
 
             <TextView
@@ -143,7 +147,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:layout_weight="1"
-                android:textColor="@color/accent_blue_soft"
+                android:textColor="?attr/appAccentSoft"
                 android:textSize="13sp" />
         </LinearLayout>
 
@@ -160,7 +164,7 @@
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.12"
                 android:text="READY TO SAVE"
-                android:textColor="@color/accent_blue"
+                android:textColor="?attr/appAccent"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -194,7 +198,7 @@
                         android:layout_height="wrap_content"
                         android:ellipsize="end"
                         android:maxLines="2"
-                        android:textColor="@color/text_primary"
+                        android:textColor="?attr/appTextPrimary"
                         android:textSize="15sp"
                         android:textStyle="bold" />
 
@@ -205,7 +209,7 @@
                         android:layout_marginTop="6dp"
                         android:ellipsize="end"
                         android:maxLines="1"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="?attr/appTextSecondary"
                         android:textSize="12sp" />
                 </LinearLayout>
             </LinearLayout>
@@ -222,7 +226,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Playlist name"
-                    android:textColor="@color/text_secondary"
+                    android:textColor="?attr/appTextSecondary"
                     android:textSize="13sp" />
 
                 <EditText
@@ -232,7 +236,7 @@
                     android:layout_marginTop="8dp"
                     android:background="@drawable/bg_input_box"
                     android:padding="14dp"
-                    android:textColor="@color/text_primary"
+                    android:textColor="?attr/appTextPrimary"
                     android:textSize="14sp" />
 
                 <com.google.android.material.materialswitch.MaterialSwitch
@@ -242,14 +246,14 @@
                     android:layout_marginTop="12dp"
                     android:checked="true"
                     android:text="Number files in order"
-                    android:textColor="@color/text_primary" />
+                    android:textColor="?attr/appTextPrimary" />
 
                 <TextView
                     android:id="@+id/tv_playlist_count"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:textColor="@color/text_secondary"
+                    android:textColor="?attr/appTextSecondary"
                     android:textSize="13sp" />
 
                 <androidx.recyclerview.widget.RecyclerView
@@ -263,7 +267,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
                 android:layout_marginTop="24dp"
-                android:background="@color/card_stroke" />
+                android:background="?attr/appStroke" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -283,7 +287,7 @@
                         android:layout_height="wrap_content"
                         android:text="FORMAT"
                         android:letterSpacing="0.1"
-                        android:textColor="@color/text_muted"
+                        android:textColor="?attr/appTextMuted"
                         android:textSize="11sp" />
 
                 <com.pandorasbox.app.OptionSpinner
@@ -308,7 +312,7 @@
                         android:layout_height="wrap_content"
                         android:text="QUALITY"
                         android:letterSpacing="0.1"
-                        android:textColor="@color/text_muted"
+                        android:textColor="?attr/appTextMuted"
                         android:textSize="11sp" />
 
                     <com.pandorasbox.app.OptionSpinner
@@ -333,7 +337,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="AUDIO TRACK"
-                    android:textColor="@color/text_muted"
+                    android:textColor="?attr/appTextMuted"
                     android:textSize="11sp" />
 
                 <com.pandorasbox.app.OptionSpinner
@@ -362,7 +366,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="More options for this download"
-                    android:textColor="@color/text_secondary"
+                    android:textColor="?attr/appTextSecondary"
                     android:textSize="14sp" />
 
                 <ImageView
@@ -386,7 +390,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:text="IF A FILE ALREADY EXISTS"
-                    android:textColor="@color/text_muted"
+                    android:textColor="?attr/appTextMuted"
                     android:textSize="11sp" />
 
                 <com.pandorasbox.app.OptionSpinner
@@ -403,14 +407,14 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:text="Download subtitles"
-                    android:textColor="@color/text_primary" />
+                    android:textColor="?attr/appTextPrimary" />
 
                 <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/switch_metadata"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Embed thumbnail and metadata"
-                    android:textColor="@color/text_primary" />
+                    android:textColor="?attr/appTextPrimary" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -424,7 +428,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Site headers"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="?attr/appTextSecondary"
                         android:textSize="13sp" />
 
                     <ImageView
@@ -437,7 +441,7 @@
                         android:focusable="true"
                         android:padding="10dp"
                         android:src="@drawable/ic_info"
-                        app:tint="@color/text_muted" />
+                        app:tint="?attr/appTextMuted" />
                 </LinearLayout>
 
                 <com.pandorasbox.app.OptionSpinner
@@ -456,8 +460,8 @@
                     android:hint="Referer URL"
                     android:inputType="textUri"
                     android:padding="14dp"
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_muted" />
+                    android:textColor="?attr/appTextPrimary"
+                    android:textColorHint="?attr/appTextMuted" />
 
                 <EditText
                     android:id="@+id/et_user_agent"
@@ -467,8 +471,8 @@
                     android:background="@drawable/bg_input_box"
                     android:hint="User-Agent string"
                     android:padding="14dp"
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_muted" />
+                    android:textColor="?attr/appTextPrimary"
+                    android:textColorHint="?attr/appTextMuted" />
             </LinearLayout>
 
             <com.google.android.material.button.MaterialButton
@@ -478,11 +482,27 @@
                 android:layout_marginTop="16dp"
                 android:text="Add to queue"
                 android:textAllCaps="false"
-                android:textColor="@color/background_dark"
+                android:textColor="?attr/appBackground"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                app:backgroundTint="@color/accent_blue"
+                app:backgroundTint="?attr/appAccent"
                 app:cornerRadius="12dp" />
         </LinearLayout>
     </LinearLayout>
 </ScrollView>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/btn_clipboard_link"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="16dp"
+        android:contentDescription="Paste link from clipboard"
+        android:visibility="gone"
+        app:backgroundTint="?attr/appCard"
+        app:borderWidth="0dp"
+        app:rippleColor="?attr/appAccentDeep"
+        app:srcCompat="@drawable/ic_paste"
+        app:tint="?attr/appAccent" />
+</FrameLayout>

@@ -49,11 +49,11 @@ class QueueAdapter(
         when (item.status) {
             "downloading" -> {
                 holder.tvStatusPill.text = "DOWNLOADING"
-                holder.tvStatusPill.setTextColor(0xFF818CF8.toInt())
+                holder.tvStatusPill.setTextColor(Appearance.color(holder.itemView.context, R.attr.appAccent))
             }
             "starting" -> {
                 holder.tvStatusPill.text = "STARTING"
-                holder.tvStatusPill.setTextColor(0xFF06B6D4.toInt())
+                holder.tvStatusPill.setTextColor(Appearance.color(holder.itemView.context, R.attr.appAccent))
             }
             "queued" -> {
                 holder.tvStatusPill.text = "QUEUED"

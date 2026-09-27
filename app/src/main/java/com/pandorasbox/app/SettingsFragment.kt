@@ -112,10 +112,43 @@ class SettingsFragment : Fragment() {
             }
         }
 
+        val about = view.findViewById<View>(R.id.layout_about)
+        val aboutArrow = view.findViewById<ImageView>(R.id.iv_about_arrow)
+        view.findViewById<View>(R.id.btn_toggle_about).setOnClickListener {
+            about.isVisible = !about.isVisible
+            aboutArrow.rotation = if (about.isVisible) 180f else 0f
+        }
+
         observeSettings()
+        setupAppearance(view)
         setupDownloadDefaults()
         setupListeners()
         setupAboutAndUpdates(view)
+    }
+
+    private fun setupAppearance(view: View) {
+        val themeSpinner = view.findViewById<Spinner>(R.id.spinner_theme)
+        val accentSpinner = view.findViewById<Spinner>(R.id.spinner_accent)
+        themeSpinner.adapter = ArrayAdapter(requireContext(), R.layout.item_spinner, Appearance.modes)
+            .apply { setDropDownViewResource(R.layout.item_spinner_dropdown) }
+        accentSpinner.adapter = ArrayAdapter(requireContext(), R.layout.item_spinner, Appearance.accents)
+            .apply { setDropDownViewResource(R.layout.item_spinner_dropdown) }
+        themeSpinner.setSelection(Appearance.mode(requireContext()))
+        accentSpinner.setSelection(Appearance.accent(requireContext()))
+
+        val listener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, selected: View?, position: Int, id: Long) {
+                val mode = themeSpinner.selectedItemPosition
+                val accent = accentSpinner.selectedItemPosition
+                if (mode != Appearance.mode(requireContext()) || accent != Appearance.accent(requireContext())) {
+                    Appearance.set(requireContext(), mode, accent)
+                    requireActivity().recreate()
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        themeSpinner.onItemSelectedListener = listener
+        accentSpinner.onItemSelectedListener = listener
     }
 
     private fun setupDownloadDefaults() {

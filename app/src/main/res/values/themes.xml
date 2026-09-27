@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.PandorasBox" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="appBackground">#0C1014</item>
+        <item name="appSurface">#171D24</item>
+        <item name="appCard">#202B36</item>
+        <item name="appStroke">#303D49</item>
+        <item name="appTextPrimary">#F1F4F7</item>
+        <item name="appTextSecondary">#AAB5BF</item>
+        <item name="appTextMuted">#7C8B98</item>
+        <item name="appNavIdle">#8896A2</item>
+        <item name="appAccent">#8FBEF5</item>
+        <item name="appAccentSoft">#E0EFFF</item>
+        <item name="appAccentDeep">#2B4869</item>
+        <item name="appNavSelected">#A8CEFA</item>
         <item name="android:windowBackground">@drawable/bg_app_premium</item>
         <item name="colorPrimary">@color/accent_blue</item>
         <item name="colorOnPrimary">@color/background_dark</item>
@@ -16,11 +28,123 @@
         <item name="android:windowLightNavigationBar">false</item>
     </style>
 
+    <style name="Theme.PandorasBox.Light" parent="Theme.Material3.Light.NoActionBar">
+        <item name="appBackground">#F5F7F9</item>
+        <item name="appSurface">#FFFFFF</item>
+        <item name="appCard">#EAF0F5</item>
+        <item name="appStroke">#CCD6DF</item>
+        <item name="appTextPrimary">#17222D</item>
+        <item name="appTextSecondary">#405262</item>
+        <item name="appTextMuted">#617383</item>
+        <item name="appNavIdle">#667786</item>
+        <item name="appAccent">#2769AB</item>
+        <item name="appAccentSoft">#174A7D</item>
+        <item name="appAccentDeep">#BED7EF</item>
+        <item name="appNavSelected">#2769AB</item>
+        <item name="colorPrimary">?attr/appAccent</item>
+        <item name="colorOnPrimary">?attr/appBackground</item>
+        <item name="colorSecondary">?attr/appAccent</item>
+        <item name="colorOnSecondary">?attr/appTextPrimary</item>
+        <item name="colorSurface">?attr/appSurface</item>
+        <item name="colorOnSurface">?attr/appTextPrimary</item>
+        <item name="android:textColorPrimary">?attr/appTextPrimary</item>
+        <item name="android:textColorSecondary">?attr/appTextSecondary</item>
+        <item name="android:windowBackground">?attr/appBackground</item>
+        <item name="android:statusBarColor">?attr/appBackground</item>
+        <item name="android:navigationBarColor">?attr/appSurface</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <style name="Theme.PandorasBox.Amoled" parent="Theme.PandorasBox">
+        <item name="appBackground">#000000</item>
+        <item name="appSurface">#0B0B0B</item>
+        <item name="appCard">#181818</item>
+        <item name="appStroke">#333333</item>
+        <item name="android:windowBackground">?attr/appBackground</item>
+        <item name="android:statusBarColor">?attr/appBackground</item>
+        <item name="android:navigationBarColor">?attr/appBackground</item>
+    </style>
+
+    <style name="Accent" />
+    <style name="Accent.Blue">
+        <item name="appAccent">#8FBEF5</item>
+        <item name="appAccentSoft">#E0EFFF</item>
+        <item name="appAccentDeep">#2B4869</item>
+        <item name="appNavSelected">#A8CEFA</item>
+        <item name="colorPrimary">#8FBEF5</item>
+        <item name="colorSecondary">#8FBEF5</item>
+    </style>
+    <style name="Accent.Green">
+        <item name="appAccent">#69D9AE</item>
+        <item name="appAccentSoft">#D7F8E8</item>
+        <item name="appAccentDeep">#244F40</item>
+        <item name="appNavSelected">#69D9AE</item>
+        <item name="colorPrimary">#69D9AE</item>
+        <item name="colorSecondary">#69D9AE</item>
+    </style>
+    <style name="Accent.Purple">
+        <item name="appAccent">#C3A7FF</item>
+        <item name="appAccentSoft">#F0E8FF</item>
+        <item name="appAccentDeep">#473765</item>
+        <item name="appNavSelected">#C3A7FF</item>
+        <item name="colorPrimary">#C3A7FF</item>
+        <item name="colorSecondary">#C3A7FF</item>
+    </style>
+    <style name="Accent.Amber">
+        <item name="appAccent">#F2C476</item>
+        <item name="appAccentSoft">#FFF1D6</item>
+        <item name="appAccentDeep">#59472B</item>
+        <item name="appNavSelected">#F2C476</item>
+        <item name="colorPrimary">#F2C476</item>
+        <item name="colorSecondary">#F2C476</item>
+    </style>
+    <style name="Accent.Rose">
+        <item name="appAccent">#F3A2B8</item>
+        <item name="appAccentSoft">#FFE3EB</item>
+        <item name="appAccentDeep">#5C3440</item>
+        <item name="appNavSelected">#F3A2B8</item>
+        <item name="colorPrimary">#F3A2B8</item>
+        <item name="colorSecondary">#F3A2B8</item>
+    </style>
+    <style name="Accent.Light.Blue" parent="Accent.Blue">
+        <item name="appAccent">#2769AB</item><item name="appAccentSoft">#174A7D</item><item name="appAccentDeep">#BED7EF</item><item name="appNavSelected">#2769AB</item><item name="colorPrimary">#2769AB</item><item name="colorSecondary">#2769AB</item>
+    </style>
+    <style name="Accent.Light.Green" parent="Accent.Green">
+        <item name="appAccent">#157650</item><item name="appAccentSoft">#135C41</item><item name="appAccentDeep">#B9E3CF</item><item name="appNavSelected">#157650</item><item name="colorPrimary">#157650</item><item name="colorSecondary">#157650</item>
+    </style>
+    <style name="Accent.Light.Purple" parent="Accent.Purple">
+        <item name="appAccent">#7350B4</item><item name="appAccentSoft">#54378D</item><item name="appAccentDeep">#D9CAEF</item><item name="appNavSelected">#7350B4</item><item name="colorPrimary">#7350B4</item><item name="colorSecondary">#7350B4</item>
+    </style>
+    <style name="Accent.Light.Amber" parent="Accent.Amber">
+        <item name="appAccent">#855500</item><item name="appAccentSoft">#654000</item><item name="appAccentDeep">#EAD7AA</item><item name="appNavSelected">#855500</item><item name="colorPrimary">#855500</item><item name="colorSecondary">#855500</item>
+    </style>
+    <style name="Accent.Light.Rose" parent="Accent.Rose">
+        <item name="appAccent">#AB3F65</item><item name="appAccentSoft">#852C4B</item><item name="appAccentDeep">#F1C9D8</item><item name="appNavSelected">#AB3F65</item><item name="colorPrimary">#AB3F65</item><item name="colorSecondary">#AB3F65</item>
+    </style>
+
     <style name="Theme.PandorasBox.Splash" parent="Theme.PandorasBox">
-        <item name="android:windowBackground">@color/background_dark</item>
-        <item name="android:statusBarColor">@color/background_dark</item>
-        <item name="android:navigationBarColor">@color/background_dark</item>
-        <item name="android:windowSplashScreenBackground">@color/background_dark</item>
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:windowSplashScreenBackground">#000000</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_system_placeholder</item>
+    </style>
+
+    <style name="Theme.PandorasBox.Splash.Amoled" parent="Theme.PandorasBox.Splash">
+        <item name="appBackground">#000000</item>
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:navigationBarColor">#000000</item>
+        <item name="android:windowSplashScreenBackground">#000000</item>
+    </style>
+
+    <style name="Theme.PandorasBox.Splash.Light" parent="Theme.PandorasBox.Light">
+        <item name="appBackground">#FFFFFF</item>
+        <item name="android:windowBackground">#FFFFFF</item>
+        <item name="android:statusBarColor">#FFFFFF</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:windowSplashScreenBackground">#FFFFFF</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_system_placeholder</item>
     </style>
 

@@ -4,13 +4,14 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="12dp"
-    app:cardBackgroundColor="@color/surface_dark"
+    app:cardBackgroundColor="?attr/appSurface"
     app:cardCornerRadius="16dp"
     app:cardElevation="0dp"
-    app:strokeColor="@color/card_stroke"
+    app:strokeColor="?attr/appStroke"
     app:strokeWidth="1dp">
 
     <LinearLayout
+        android:id="@+id/history_content"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
@@ -19,37 +20,38 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="top"
             android:orientation="horizontal">
 
             <com.google.android.material.card.MaterialCardView
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                app:cardBackgroundColor="@color/card_dark"
+                android:id="@+id/history_thumb_container"
+                android:layout_width="112dp"
+                android:layout_height="84dp"
+                app:cardBackgroundColor="?attr/appCard"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/card_stroke"
+                app:strokeColor="?attr/appStroke"
                 app:strokeWidth="1dp">
 
                 <ImageView
                     android:id="@+id/iv_history_thumb"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:scaleType="centerCrop"
-                    android:contentDescription="@null" />
+                    android:contentDescription="@null"
+                    android:scaleType="centerCrop" />
 
                 <TextView
                     android:id="@+id/tv_history_icon"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
                     android:layout_gravity="bottom|end"
-                    android:layout_margin="2dp"
+                    android:layout_margin="3dp"
                     android:background="@drawable/bg_bottom_nav"
                     android:gravity="center"
                     android:text="✓"
                     android:textColor="@color/accent_emerald"
-                    android:textSize="11sp"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
-
             </com.google.android.material.card.MaterialCardView>
 
             <LinearLayout
@@ -65,95 +67,124 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="2"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
+                    android:textColor="?attr/appTextPrimary"
+                    android:textSize="15sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/tv_history_sub"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:textColor="@color/text_secondary"
+                    android:layout_marginTop="4dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="?attr/appTextSecondary"
                     android:textSize="12sp" />
 
                 <TextView
                     android:id="@+id/tv_history_options"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:textColor="@color/accent_blue"
-                    android:textSize="11sp" />
+                    android:layout_marginTop="3dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="?attr/appAccent"
+                    android:textSize="12sp" />
             </LinearLayout>
+
+            <ImageView
+                android:id="@+id/btn_history_more"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:contentDescription="Actions for this download"
+                android:focusable="true"
+                android:padding="10dp"
+                android:src="@drawable/ic_more_vert"
+                app:tint="?attr/appTextSecondary" />
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/history_actions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="14dp"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_open_file"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="44dp"
                 android:layout_marginEnd="8dp"
-                android:text="Open File"
+                android:minWidth="0dp"
+                android:text="Open"
                 android:textAllCaps="false"
+                android:textColor="?attr/appTextPrimary"
                 android:textSize="12sp"
-                app:backgroundTint="@color/card_dark"
+                app:backgroundTint="?attr/appCard"
                 app:cornerRadius="10dp"
-                app:strokeColor="@color/card_stroke"
+                android:insetBottom="0dp"
+                android:insetTop="0dp"
+                app:strokeColor="?attr/appStroke"
                 app:strokeWidth="1dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_open_folder"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="44dp"
                 android:layout_marginEnd="8dp"
+                android:minWidth="0dp"
                 android:text="Folder"
                 android:textAllCaps="false"
+                android:textColor="?attr/appTextPrimary"
                 android:textSize="12sp"
-                app:icon="@drawable/ic_folder"
-                app:iconTint="@color/text_primary"
-                app:backgroundTint="@color/card_dark"
+                app:backgroundTint="?attr/appCard"
                 app:cornerRadius="10dp"
-                app:strokeColor="@color/card_stroke"
+                app:icon="@drawable/ic_folder"
+                app:iconTint="?attr/appTextPrimary"
+                android:insetBottom="0dp"
+                android:insetTop="0dp"
+                app:strokeColor="?attr/appStroke"
                 app:strokeWidth="1dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_retry"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="44dp"
+                android:layout_marginEnd="8dp"
+                android:minWidth="0dp"
                 android:text="Retry"
                 android:textAllCaps="false"
+                android:textColor="?attr/appTextPrimary"
                 android:textSize="12sp"
-                app:icon="@drawable/ic_refresh"
-                app:iconTint="@color/text_primary"
-                app:backgroundTint="@color/card_dark"
+                app:backgroundTint="?attr/appCard"
                 app:cornerRadius="10dp"
-                app:strokeColor="@color/card_stroke"
+                app:icon="@drawable/ic_refresh"
+                app:iconTint="?attr/appTextPrimary"
+                android:insetBottom="0dp"
+                android:insetTop="0dp"
+                app:strokeColor="?attr/appStroke"
                 app:strokeWidth="1dp" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_copy_link"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Copy Link"
+                android:layout_height="44dp"
+                android:minWidth="0dp"
+                android:text="Copy link"
                 android:textAllCaps="false"
+                android:textColor="?attr/appTextPrimary"
                 android:textSize="12sp"
-                app:backgroundTint="@color/card_dark"
+                app:backgroundTint="?attr/appCard"
                 app:cornerRadius="10dp"
-                app:strokeColor="@color/card_stroke"
+                app:icon="@drawable/ic_link"
+                app:iconTint="?attr/appTextPrimary"
+                android:insetBottom="0dp"
+                android:insetTop="0dp"
+                app:strokeColor="?attr/appStroke"
                 app:strokeWidth="1dp" />
         </LinearLayout>
-
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

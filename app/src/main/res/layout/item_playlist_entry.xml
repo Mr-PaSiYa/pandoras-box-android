@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/card_dark"
+    android:background="?attr/appCard"
     android:gravity="center_vertical"
     android:orientation="horizontal"
     android:padding="8dp">
@@ -16,7 +16,7 @@
         android:id="@+id/tv_index"
         android:layout_width="32dp"
         android:layout_height="wrap_content"
-        android:textColor="@color/accent_purple"
+        android:textColor="?attr/appAccent"
         android:textSize="12sp"
         android:textStyle="bold" />
 
@@ -27,7 +27,7 @@
         android:layout_weight="1"
         android:ellipsize="end"
         android:singleLine="true"
-        android:textColor="@color/text_primary"
+        android:textColor="?attr/appTextPrimary"
         android:textSize="13sp" />
 
     <!-- Drag handle: press and hold here, then move up or down to reorder -->
@@ -38,6 +38,6 @@
         android:contentDescription="Drag to reorder"
         android:padding="8dp"
         android:src="@drawable/ic_drag_handle"
-        android:tint="@color/text_muted" />
+        android:tint="?attr/appTextMuted" />
 
 </LinearLayout>

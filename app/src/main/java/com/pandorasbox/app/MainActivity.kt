@@ -1,14 +1,16 @@
 package com.pandorasbox.app
 
 import android.os.Bundle
-import android.content.res.ColorStateList
 import android.graphics.Rect
 import android.provider.Settings
 import android.view.View
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.content.ContextCompat
+import com.airbnb.lottie.LottieAnimationView
+import com.airbnb.lottie.LottieProperty
+import com.airbnb.lottie.SimpleColorFilter
+import com.airbnb.lottie.model.KeyPath
+import com.airbnb.lottie.value.LottieValueCallback
 import androidx.core.graphics.ColorUtils
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
@@ -22,6 +24,7 @@ class MainActivity : FragmentActivity() {
     private lateinit var bottomNav: LinearLayout
     private lateinit var pager: ViewPager2
     private val tabs = intArrayOf(R.id.nav_download, R.id.nav_queue, R.id.nav_history)
+    private val navIconIds = intArrayOf(R.id.nav_icon_home, R.id.nav_icon_queue, R.id.nav_icon_library)
     private var keyboardVisible = false
 
     // Android 13+ shows a "Allow notifications?" dialog. Nothing extra to do with the answer:
@@ -37,6 +40,7 @@ class MainActivity : FragmentActivity() {
     private var currentNavId: Int = R.id.nav_download
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Appearance.apply(this)
         super.onCreate(savedInstanceState)
         currentNavId = savedInstanceState?.getInt("current_nav_id", R.id.nav_download) ?: R.id.nav_download
         setContentView(R.layout.activity_main)
@@ -53,6 +57,12 @@ class MainActivity : FragmentActivity() {
         }
 
         bottomNav = findViewById(R.id.bottom_nav)
+        navIconIds.forEachIndexed { index, id ->
+            findViewById<LottieAnimationView>(id).addLottieOnCompositionLoadedListener {
+                // Raw compositions load asynchronously; tint only after their layers exist.
+                styleNavIcon(index, tabs.indexOf(currentNavId).coerceAtLeast(0))
+            }
+        }
         pager = findViewById(R.id.main_pager)
         val root = findViewById<View>(R.id.activity_root)
         root.viewTreeObserver.addOnGlobalLayoutListener {
@@ -85,12 +95,14 @@ class MainActivity : FragmentActivity() {
             override fun onPageSelected(position: Int) {
                 currentNavId = tabs[position]
                 updateSelectedLabel()
+                updateNavIcons(position)
             }
         })
 
         tabs.forEach { id -> findViewById<View>(id).setOnClickListener { selectTab(id) } }
         updateSelectedLabel()
         updateNavProgress(tabs.indexOf(currentNavId).toFloat())
+        updateNavIcons(tabs.indexOf(currentNavId).coerceAtLeast(0))
         supportFragmentManager.addOnBackStackChangedListener { updateSettingsVisibility() }
         updateSettingsVisibility()
         root.postDelayed({ PythonRuntime.startAsync(applicationContext) }, 300L)
@@ -100,6 +112,8 @@ class MainActivity : FragmentActivity() {
         if (id == currentNavId || supportFragmentManager.backStackEntryCount != 0) return
         pager.setCurrentItem(tabs.indexOf(id), motionEnabled())
     }
+
+    fun showQueue() = selectTab(R.id.nav_queue)
 
     private fun updateSettingsVisibility() {
         val settingsOpen = supportFragmentManager.backStackEntryCount != 0
@@ -120,18 +134,41 @@ class MainActivity : FragmentActivity() {
         val icons = intArrayOf(R.id.nav_icon_home, R.id.nav_icon_queue, R.id.nav_icon_library)
         val labels = intArrayOf(R.id.nav_label_home, R.id.nav_label_queue, R.id.nav_label_library)
         val indicators = intArrayOf(R.id.nav_indicator_home, R.id.nav_indicator_queue, R.id.nav_indicator_library)
-        val activeColor = ContextCompat.getColor(this, R.color.nav_item_selected)
-        val idleColor = ContextCompat.getColor(this, R.color.nav_item_unselected)
+        val activeColor = Appearance.color(this, R.attr.appNavSelected)
+        val idleColor = Appearance.color(this, R.attr.appNavIdle)
         tabs.indices.forEach { i ->
             val strength = (1f - kotlin.math.abs(i - progress)).coerceIn(0f, 1f)
             val color = ColorUtils.blendARGB(idleColor, activeColor, strength)
-            findViewById<ImageView>(icons[i]).apply {
-                imageTintList = ColorStateList.valueOf(color)
+            findViewById<LottieAnimationView>(icons[i]).apply {
                 scaleX = 0.96f + strength * 0.04f
                 scaleY = 0.96f + strength * 0.04f
             }
             findViewById<TextView>(labels[i]).setTextColor(color)
             findViewById<View>(indicators[i]).alpha = strength
+        }
+    }
+
+    private fun updateNavIcons(selected: Int) {
+        navIconIds.indices.forEach { index ->
+            val icon = findViewById<LottieAnimationView>(navIconIds[index])
+            if (icon.composition != null) styleNavIcon(index, selected)
+        }
+    }
+
+    private fun styleNavIcon(index: Int, selected: Int) {
+        val activeColor = Appearance.color(this, R.attr.appNavSelected)
+        val idleColor = Appearance.color(this, R.attr.appNavIdle)
+        findViewById<LottieAnimationView>(navIconIds[index]).apply {
+            addValueCallback(
+                KeyPath("**"), LottieProperty.COLOR_FILTER,
+                LottieValueCallback(SimpleColorFilter(if (index == selected) activeColor else idleColor))
+            )
+            cancelAnimation()
+            progress = 1f
+            if (index == selected && motionEnabled()) {
+                progress = 0f
+                playAnimation()
+            }
         }
     }
 

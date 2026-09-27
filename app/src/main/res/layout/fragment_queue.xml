@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background_dark"
+    android:background="?attr/appBackground"
     android:clipToPadding="false"
     android:orientation="vertical"
     android:padding="20dp"
@@ -20,7 +20,7 @@
             android:layout_height="wrap_content"
             android:letterSpacing="0.15"
             android:text="TASKS"
-            android:textColor="@color/accent_blue"
+            android:textColor="?attr/appAccent"
             android:textSize="11sp"
             android:textStyle="bold" />
 
@@ -29,7 +29,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
             android:text="Active Queue"
-            android:textColor="@color/text_primary"
+            android:textColor="?attr/appTextPrimary"
             android:textSize="22sp"
             android:textStyle="bold" />
 
@@ -39,7 +39,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="Nothing queued."
-            android:textColor="@color/text_secondary"
+            android:textColor="?attr/appTextSecondary"
             android:textSize="13sp" />
 
         <com.google.android.material.button.MaterialButton
@@ -49,16 +49,16 @@
             android:layout_marginTop="10dp"
             android:text="Pause queue"
             android:textAllCaps="false"
-            android:textColor="@color/text_primary"
+            android:textColor="?attr/appTextPrimary"
             android:textSize="12sp"
-            app:backgroundTint="@color/card_dark"
+            app:backgroundTint="?attr/appCard"
             app:cornerRadius="12dp"
             app:icon="@android:drawable/ic_media_pause"
             app:iconGravity="textStart"
             app:iconPadding="6dp"
             app:iconSize="16dp"
-            app:iconTint="@color/text_primary"
-            app:strokeColor="@color/card_stroke"
+            app:iconTint="?attr/appTextPrimary"
+            app:strokeColor="?attr/appStroke"
             app:strokeWidth="1dp" />
     </LinearLayout>
 
@@ -82,7 +82,7 @@
             android:layout_gravity="center"
             android:gravity="center"
             android:text="Ready when you are.\nPaste a link on Home to start a download."
-            android:textColor="@color/text_secondary"
+            android:textColor="?attr/appTextSecondary"
             android:textSize="14sp" />
     </FrameLayout>
 

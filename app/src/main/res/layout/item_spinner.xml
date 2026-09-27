@@ -5,5 +5,5 @@
     android:ellipsize="end"
     android:padding="12dp"
     android:singleLine="true"
-    android:textColor="@color/text_primary"
+    android:textColor="?attr/appTextPrimary"
     android:textSize="14sp" />

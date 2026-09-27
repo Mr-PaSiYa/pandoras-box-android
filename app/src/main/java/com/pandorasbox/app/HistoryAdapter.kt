@@ -3,16 +3,20 @@ package com.pandorasbox.app
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.util.LruCache
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -25,8 +29,16 @@ class HistoryAdapter(
     private val onOpenFile: (String) -> Unit,
     private val onOpenFolder: (String) -> Unit,
     private val onRetry: (DownloadJob) -> Unit,
-    private val onCopyLink: (String) -> Unit
+    private val onCopyLink: (String) -> Unit,
+    private val onRemove: (DownloadJob) -> Unit
 ) : ListAdapter<DownloadJob, HistoryAdapter.ViewHolder>(DiffCallback) {
+
+    var compact = false
+        set(value) {
+            if (field == value) return
+            field = value
+            notifyDataSetChanged()
+        }
 
     // Small in-memory cache so scrolling the list doesn't keep re-decoding the same
     // video frame. Keyed by file path; cleared automatically when the fragment/adapter
@@ -37,6 +49,10 @@ class HistoryAdapter(
     private fun isAudioOnly(format: String) = format.trim().lowercase(Locale.US) in AUDIO_ONLY_FORMATS
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val content: LinearLayout = view.findViewById(R.id.history_content)
+        val thumbContainer: MaterialCardView = view.findViewById(R.id.history_thumb_container)
+        val actions: LinearLayout = view.findViewById(R.id.history_actions)
+        val more: View = view.findViewById(R.id.btn_history_more)
         val ivThumb: ImageView = view.findViewById(R.id.iv_history_thumb)
         val tvIcon: TextView = view.findViewById(R.id.tv_history_icon)
         val tvTitle: TextView = view.findViewById(R.id.tv_history_title)
@@ -56,6 +72,21 @@ class HistoryAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = getItem(position)
+        val density = holder.itemView.resources.displayMetrics.density
+        fun dp(value: Int) = (value * density + 0.5f).toInt()
+        val thumbnailSize = holder.thumbContainer.layoutParams
+        thumbnailSize.width = dp(if (compact) 56 else 112)
+        thumbnailSize.height = dp(if (compact) 56 else 84)
+        holder.thumbContainer.layoutParams = thumbnailSize
+        val padding = dp(if (compact) 10 else 16)
+        holder.content.setPadding(padding, padding, padding, padding)
+        (holder.itemView.layoutParams as? ViewGroup.MarginLayoutParams)?.let {
+            it.bottomMargin = dp(if (compact) 6 else 12)
+            holder.itemView.layoutParams = it
+        }
+        holder.tvTitle.maxLines = if (compact) 1 else 2
+        holder.tvTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, if (compact) 13f else 15f)
+        holder.actions.isVisible = !compact
 
         when (item.status) {
             "completed" -> {
@@ -87,7 +118,7 @@ class HistoryAdapter(
 
         val optionsStr = formatOptions(item)
         holder.tvOptions.text = optionsStr
-        holder.tvOptions.isVisible = optionsStr.isNotBlank()
+        holder.tvOptions.isVisible = !compact && optionsStr.isNotBlank()
 
         // A missing file (e.g. the user deleted it, or it was on removable storage) can
         // still be re-downloaded from the saved URL, same as a failed/cancelled job.
@@ -104,6 +135,31 @@ class HistoryAdapter(
         holder.btnOpenFolder.setOnClickListener { onOpenFolder(item.filePath) }
         holder.btnRetry.setOnClickListener { onRetry(item) }
         holder.btnCopyLink.setOnClickListener { onCopyLink(item.url) }
+        holder.more.contentDescription = "Actions for ${item.title.ifBlank { "Untitled" }}"
+        holder.more.setOnClickListener {
+            PopupMenu(holder.itemView.context, holder.more).apply {
+                if (compact) {
+                    if (canOpen) {
+                        menu.add(0, 1, 0, "Open file")
+                        menu.add(0, 2, 1, "Open folder")
+                    }
+                    if (canRetry) menu.add(0, 3, 2, holder.btnRetry.text)
+                    if (item.url.isNotBlank()) menu.add(0, 4, 3, "Copy link")
+                }
+                menu.add(0, 5, 4, "Remove from history")
+                setOnMenuItemClickListener { selected ->
+                    when (selected.itemId) {
+                        1 -> onOpenFile(item.filePath)
+                        2 -> onOpenFolder(item.filePath)
+                        3 -> onRetry(item)
+                        4 -> onCopyLink(item.url)
+                        5 -> onRemove(item)
+                    }
+                    true
+                }
+                show()
+            }
+        }
 
         loadThumbnail(holder, item)
     }
@@ -146,7 +202,7 @@ class HistoryAdapter(
         return try {
             retriever.setDataSource(path)
             val frame = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC) ?: return null
-            val targetSize = 160
+            val targetSize = 320
             if (frame.width <= targetSize && frame.height <= targetSize) {
                 frame
             } else {

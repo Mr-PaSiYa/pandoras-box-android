@@ -2,6 +2,7 @@ package com.pandorasbox.app
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.text.Editable
@@ -18,7 +19,6 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
-import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -26,7 +26,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.airbnb.lottie.LottieAnimationView
+import com.airbnb.lottie.model.KeyPath
+import com.airbnb.lottie.LottieProperty
+import com.airbnb.lottie.value.LottieValueCallback
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.materialswitch.MaterialSwitch
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -36,6 +40,8 @@ class DownloadFragment : Fragment() {
 
     private lateinit var etUrl: EditText
     private lateinit var btnPaste: MaterialButton
+    private lateinit var btnClipboardLink: FloatingActionButton
+    private lateinit var clipboard: ClipboardManager
     private lateinit var layoutResult: View
     private lateinit var layoutPreview: View
     private lateinit var ivThumbnail: ImageView
@@ -77,6 +83,9 @@ class DownloadFragment : Fragment() {
     private var currentPreviewResult: PreviewResult? = null
     private var playlistEntries = mutableListOf<PlaylistEntry>()
     private var playlistAdapter: PlaylistAdapter? = null
+    private val clipboardListener = ClipboardManager.OnPrimaryClipChangedListener {
+        view?.post { updateClipboardShortcut() }
+    }
 
     // Spinner entries for the Audio Track picker. Only filled when a video has 2+ audio tracks;
     // empty otherwise (and then the spinner is hidden and no track id is sent).
@@ -124,6 +133,8 @@ class DownloadFragment : Fragment() {
     private fun bindViews(view: View) {
         etUrl = view.findViewById(R.id.et_url)
         btnPaste = view.findViewById(R.id.btn_paste)
+        btnClipboardLink = view.findViewById(R.id.btn_clipboard_link)
+        clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         layoutResult = view.findViewById(R.id.layout_result)
         layoutPreview = view.findViewById(R.id.layout_preview)
         ivThumbnail = view.findViewById(R.id.iv_thumbnail)
@@ -132,6 +143,11 @@ class DownloadFragment : Fragment() {
 
         layoutFetchStatus = view.findViewById(R.id.layout_fetch_status)
         progressFetch = view.findViewById(R.id.progress_fetch)
+        progressFetch.addValueCallback(
+            KeyPath("**"),
+            LottieProperty.STROKE_COLOR,
+            LottieValueCallback(Appearance.color(requireContext(), R.attr.appAccent))
+        )
         tvFetchStatus = view.findViewById(R.id.tv_fetch_status)
 
         layoutPlaylistPanel = view.findViewById(R.id.layout_playlist_panel)
@@ -224,13 +240,23 @@ class DownloadFragment : Fragment() {
             (activity as? MainActivity)?.openSettings()
         }
         btnPaste.setOnClickListener {
-            val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = clipboard.primaryClip
             if (clip != null && clip.itemCount > 0) {
                 val text = clip.getItemAt(0).text?.toString() ?: ""
                 etUrl.setText(text)
             } else {
                 Toast.makeText(requireContext(), "Clipboard is empty.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        btnClipboardLink.setOnClickListener {
+            val link = clipboardLink()
+            if (link != null) {
+                etUrl.setText(link)
+                etUrl.setSelection(link.length)
+                btnClipboardLink.isVisible = false
+            } else {
+                updateClipboardShortcut()
             }
         }
 
@@ -255,6 +281,7 @@ class DownloadFragment : Fragment() {
                 } else {
                     resetPreviewUI()
                 }
+                updateClipboardShortcut()
             }
         })
 
@@ -312,6 +339,10 @@ class DownloadFragment : Fragment() {
             val lines = rawText.lines().map { it.trim() }.filter { it.isNotBlank() }
 
             if (currentPreviewResult?.isPlaylist == true) {
+                if (playlistEntries.none { it.included && it.url.isNotBlank() }) {
+                    Toast.makeText(requireContext(), "Select at least one playlist item.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
                 val playlistInfo = currentPreviewResult?.playlistInfo
                 val pTitle = etPlaylistName.text.toString().trim().ifBlank { playlistInfo?.playlistTitle ?: "Playlist" }
                 val numbering = switchNumbering.isChecked
@@ -366,11 +397,14 @@ class DownloadFragment : Fragment() {
             etReferer.setText("")
             etUserAgent.setText("")
             spinnerUaPreset.setSelection(0)
+            (activity as? MainActivity)?.showQueue()
         }
     }
 
     override fun onResume() {
         super.onResume()
+        clipboard.addPrimaryClipChangedListener(clipboardListener)
+        view?.post { if (isResumed) updateClipboardShortcut() }
         if (::spinnerDuplicate.isInitialized && currentPreviewResult == null) applyDownloadDefaults()
         if (::progressFetch.isInitialized && layoutFetchStatus.isVisible && progressFetch.isVisible && motionEnabled()) {
             progressFetch.playAnimation()
@@ -378,8 +412,31 @@ class DownloadFragment : Fragment() {
     }
 
     override fun onPause() {
+        clipboard.removePrimaryClipChangedListener(clipboardListener)
+        btnClipboardLink.isVisible = false
         if (::progressFetch.isInitialized) progressFetch.pauseAnimation()
         super.onPause()
+    }
+
+    private fun updateClipboardShortcut() {
+        if (!isResumed || !::btnClipboardLink.isInitialized) return
+        btnClipboardLink.isVisible = etUrl.text.isNullOrBlank() && clipboardLink() != null
+    }
+
+    private fun clipboardLink(): String? {
+        val clip = try { clipboard.primaryClip } catch (_: SecurityException) { null } ?: return null
+        val pattern = Regex("https?://[^\\s<>\"]+", RegexOption.IGNORE_CASE)
+        for (index in 0 until clip.itemCount) {
+            val item = clip.getItemAt(index)
+            val source = item.text?.toString() ?: item.uri?.toString() ?: continue
+            val candidate = pattern.find(source)?.value
+                ?.trimEnd('.', ',', ';', ')', ']', '}', '!', '?') ?: continue
+            val uri = Uri.parse(candidate)
+            if ((uri.scheme.equals("http", true) || uri.scheme.equals("https", true)) && !uri.host.isNullOrBlank()) {
+                return candidate
+            }
+        }
+        return null
     }
 
     private fun applyDownloadDefaults() {
@@ -437,7 +494,7 @@ class DownloadFragment : Fragment() {
         tvFetchStatus.text = message
         tvFetchStatus.setTextColor(
             if (isError) 0xFFEF5350.toInt()
-            else ContextCompat.getColor(requireContext(), R.color.accent_blue_soft)
+            else Appearance.color(requireContext(), R.attr.appAccentSoft)
         )
     }
 

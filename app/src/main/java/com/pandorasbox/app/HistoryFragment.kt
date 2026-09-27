@@ -11,6 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -24,6 +25,7 @@ import java.io.File
 class HistoryFragment : Fragment() {
 
     private lateinit var btnClearHistory: MaterialButton
+    private lateinit var btnHistoryView: MaterialButton
     private lateinit var rvHistory: RecyclerView
     private lateinit var tvEmpty: TextView
     private lateinit var historyAdapter: HistoryAdapter
@@ -40,6 +42,7 @@ class HistoryFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         btnClearHistory = view.findViewById(R.id.btn_clear_history)
+        btnHistoryView = view.findViewById(R.id.btn_history_view)
         rvHistory = view.findViewById(R.id.rv_history)
         tvEmpty = view.findViewById(R.id.tv_history_empty)
 
@@ -51,8 +54,18 @@ class HistoryFragment : Fragment() {
                 DownloadManager.retryJob(job)
                 Toast.makeText(requireContext(), "Re-queued download!", Toast.LENGTH_SHORT).show()
             },
-            onCopyLink = { url -> copyLinkToClipboard(url) }
+            onCopyLink = { url -> copyLinkToClipboard(url) },
+            onRemove = { job -> confirmRemove(job) }
         )
+
+        val displayPrefs = requireContext().getSharedPreferences("history_display", Context.MODE_PRIVATE)
+        historyAdapter.compact = displayPrefs.getBoolean("compact", false)
+        updateViewButton()
+        btnHistoryView.setOnClickListener {
+            historyAdapter.compact = !historyAdapter.compact
+            displayPrefs.edit().putBoolean("compact", historyAdapter.compact).apply()
+            updateViewButton()
+        }
 
         rvHistory.layoutManager = LinearLayoutManager(requireContext())
         rvHistory.adapter = historyAdapter
@@ -63,6 +76,26 @@ class HistoryFragment : Fragment() {
         }
 
         observeHistory()
+    }
+
+    private fun updateViewButton() {
+        btnHistoryView.text = if (historyAdapter.compact) "Large cards" else "Compact list"
+        btnHistoryView.contentDescription = if (historyAdapter.compact) {
+            "Switch to large history cards"
+        } else {
+            "Switch to compact history list"
+        }
+    }
+
+    private fun confirmRemove(job: DownloadJob) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Remove from history?")
+            .setMessage("The downloaded file will stay on your device.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Remove") { _, _ ->
+                DownloadManager.removeHistoryItem(job.id)
+            }
+            .show()
     }
 
     private fun observeHistory() {

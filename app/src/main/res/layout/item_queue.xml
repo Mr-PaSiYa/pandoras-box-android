@@ -3,18 +3,18 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="12dp"
-    app:cardBackgroundColor="@color/surface_dark"
+    android:layout_marginBottom="8dp"
+    app:cardBackgroundColor="?attr/appSurface"
     app:cardCornerRadius="16dp"
     app:cardElevation="0dp"
-    app:strokeColor="@color/card_stroke"
+    app:strokeColor="?attr/appStroke"
     app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="12dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -33,8 +33,8 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:maxLines="2"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
+                    android:textColor="?attr/appTextPrimary"
+                    android:textSize="13sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -42,7 +42,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="3dp"
-                    android:textColor="@color/text_secondary"
+                    android:textColor="?attr/appTextSecondary"
                     android:textSize="12sp" />
             </LinearLayout>
 
@@ -54,7 +54,7 @@
                 android:background="@drawable/bg_bottom_nav"
                 android:paddingHorizontal="10dp"
                 android:paddingVertical="4dp"
-                android:textColor="@color/accent_purple"
+                android:textColor="?attr/appAccent"
                 android:textSize="10sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -63,14 +63,14 @@
             android:id="@+id/progress_bar"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
-            android:layout_height="8dp"
-            android:layout_marginTop="12dp"
+            android:layout_height="6dp"
+            android:layout_marginTop="8dp"
             android:progressDrawable="@drawable/progress_bar_custom" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -78,7 +78,7 @@
                 android:id="@+id/tv_percent"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="@color/accent_blue"
+                android:textColor="?attr/appAccent"
                 android:textSize="12sp"
                 android:textStyle="bold" />
 
@@ -87,7 +87,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
-                android:textColor="@color/text_secondary"
+                android:textColor="?attr/appTextSecondary"
                 android:textSize="11sp" />
 
             <TextView
@@ -95,7 +95,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
-                android:textColor="@color/text_secondary"
+                android:textColor="?attr/appTextSecondary"
                 android:textSize="11sp" />
 
             <TextView
@@ -103,15 +103,18 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
-                android:textColor="@color/text_muted"
+                android:textColor="?attr/appTextMuted"
                 android:textSize="11sp" />
         </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_cancel"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="6dp"
+            android:minWidth="0dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
             android:text="Cancel"
             android:textAllCaps="false"
             android:textColor="@color/accent_rose"
